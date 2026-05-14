@@ -1,0 +1,1 @@
+ALTER TABLE public.allowed_users ADD COLUMN classificacao text NOT NULL DEFAULT 'standard';

@@ -1,0 +1,1 @@
+-- No migration needed, classificacao is already a text field that accepts any value

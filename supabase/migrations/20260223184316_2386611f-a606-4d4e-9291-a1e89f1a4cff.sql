@@ -1,0 +1,1 @@
+CREATE POLICY "Anyone can update allowed_users" ON public.allowed_users FOR UPDATE USING (true) WITH CHECK (true);

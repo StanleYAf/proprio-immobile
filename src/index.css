@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+
+@layer base {
+  :root {
+    --background: 220 14% 96%;
+    --foreground: 220 20% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 12%;
+
+    --primary: 220 18% 16%;
+    --primary-foreground: 42 70% 62%;
+
+    --secondary: 220 10% 92%;
+    --secondary-foreground: 220 20% 12%;
+
+    --muted: 220 10% 93%;
+    --muted-foreground: 220 8% 50%;
+
+    --accent: 42 65% 52%;
+    --accent-foreground: 220 18% 12%;
+
+    --destructive: 0 68% 52%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 55% 42%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 220 12% 88%;
+    --input: 220 12% 88%;
+    --ring: 42 65% 52%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 220 18% 16%;
+    --sidebar-foreground: 42 70% 62%;
+    --sidebar-primary: 42 65% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 18% 22%;
+    --sidebar-accent-foreground: 42 70% 62%;
+    --sidebar-border: 220 14% 24%;
+    --sidebar-ring: 42 65% 52%;
+  }
+
+  .dark {
+    --background: 220 18% 7%;
+    --foreground: 220 10% 90%;
+    --card: 220 18% 11%;
+    --card-foreground: 220 10% 90%;
+    --popover: 220 18% 11%;
+    --popover-foreground: 220 10% 90%;
+    --primary: 42 65% 52%;
+    --primary-foreground: 220 18% 7%;
+    --secondary: 220 14% 16%;
+    --secondary-foreground: 220 10% 90%;
+    --muted: 220 14% 16%;
+    --muted-foreground: 220 8% 55%;
+    --accent: 42 65% 52%;
+    --accent-foreground: 220 18% 7%;
+    --destructive: 0 62% 32%;
+    --destructive-foreground: 220 10% 98%;
+    --border: 220 14% 20%;
+    --input: 220 14% 20%;
+    --ring: 42 65% 52%;
+    --sidebar-background: 220 18% 5%;
+    --sidebar-foreground: 42 70% 62%;
+    --sidebar-primary: 42 65% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 18% 12%;
+    --sidebar-accent-foreground: 42 70% 62%;
+    --sidebar-border: 220 14% 16%;
+    --sidebar-ring: 42 65% 52%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'DM Sans', sans-serif;
+  }
+}
+
+a[href*="lovable.dev"], iframe[src*="lovable.dev"], div[style*="Edit with Lovable"], .lovable-badge {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  z-index: -9999 !important;
+}
+
+/* Fix Radix Select overlay covering the page */
+[data-radix-select-content] {
+  z-index: 9999 !important;
+}
+
+[data-radix-popper-content-wrapper] {
+  z-index: 9999 !important;
+}
