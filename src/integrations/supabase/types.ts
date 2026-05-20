@@ -41,6 +41,326 @@ export type Database = {
         }
         Relationships: []
       }
+      atendimento_historico: {
+        Row: {
+          atendimento_id: string | null
+          conteudo: string
+          corretor_email: string | null
+          created_at: string | null
+          id: string
+          tipo: string | null
+        }
+        Insert: {
+          atendimento_id?: string | null
+          conteudo: string
+          corretor_email?: string | null
+          created_at?: string | null
+          id?: string
+          tipo?: string | null
+        }
+        Update: {
+          atendimento_id?: string | null
+          conteudo?: string
+          corretor_email?: string | null
+          created_at?: string | null
+          id?: string
+          tipo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atendimento_historico_atendimento_id_fkey"
+            columns: ["atendimento_id"]
+            isOneToOne: false
+            referencedRelation: "atendimentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      atendimento_imoveis: {
+        Row: {
+          atendimento_id: string | null
+          created_at: string | null
+          id: string
+          imovel_id: string | null
+          status: string | null
+        }
+        Insert: {
+          atendimento_id?: string | null
+          created_at?: string | null
+          id?: string
+          imovel_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          atendimento_id?: string | null
+          created_at?: string | null
+          id?: string
+          imovel_id?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atendimento_imoveis_atendimento_id_fkey"
+            columns: ["atendimento_id"]
+            isOneToOne: false
+            referencedRelation: "atendimentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimento_imoveis_imovel_id_fkey"
+            columns: ["imovel_id"]
+            isOneToOne: false
+            referencedRelation: "imoveis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      atendimentos: {
+        Row: {
+          area_min: number | null
+          bairros_interesse: string[] | null
+          cidade_interesse: string | null
+          cliente_id: string | null
+          codigo: string | null
+          corretor_email: string | null
+          created_at: string | null
+          etapa: string | null
+          finalidade_interesse: string | null
+          id: string
+          imovel_origem_id: string | null
+          notas: string | null
+          quartos_min: number | null
+          status: string | null
+          tipo_interesse: string[] | null
+          updated_at: string | null
+          vagas_min: number | null
+          valor_max: number | null
+          valor_min: number | null
+        }
+        Insert: {
+          area_min?: number | null
+          bairros_interesse?: string[] | null
+          cidade_interesse?: string | null
+          cliente_id?: string | null
+          codigo?: string | null
+          corretor_email?: string | null
+          created_at?: string | null
+          etapa?: string | null
+          finalidade_interesse?: string | null
+          id?: string
+          imovel_origem_id?: string | null
+          notas?: string | null
+          quartos_min?: number | null
+          status?: string | null
+          tipo_interesse?: string[] | null
+          updated_at?: string | null
+          vagas_min?: number | null
+          valor_max?: number | null
+          valor_min?: number | null
+        }
+        Update: {
+          area_min?: number | null
+          bairros_interesse?: string[] | null
+          cidade_interesse?: string | null
+          cliente_id?: string | null
+          codigo?: string | null
+          corretor_email?: string | null
+          created_at?: string | null
+          etapa?: string | null
+          finalidade_interesse?: string | null
+          id?: string
+          imovel_origem_id?: string | null
+          notas?: string | null
+          quartos_min?: number | null
+          status?: string | null
+          tipo_interesse?: string[] | null
+          updated_at?: string | null
+          vagas_min?: number | null
+          valor_max?: number | null
+          valor_min?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atendimentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimentos_imovel_origem_id_fkey"
+            columns: ["imovel_origem_id"]
+            isOneToOne: false
+            referencedRelation: "imoveis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clientes: {
+        Row: {
+          corretor_email: string | null
+          cpf: string | null
+          created_at: string | null
+          email: string | null
+          estado_civil: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          origem: string | null
+          profissao: string | null
+          renda: number | null
+          telefone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          corretor_email?: string | null
+          cpf?: string | null
+          created_at?: string | null
+          email?: string | null
+          estado_civil?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          origem?: string | null
+          profissao?: string | null
+          renda?: number | null
+          telefone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          corretor_email?: string | null
+          cpf?: string | null
+          created_at?: string | null
+          email?: string | null
+          estado_civil?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          origem?: string | null
+          profissao?: string | null
+          renda?: number | null
+          telefone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      imoveis: {
+        Row: {
+          andar: number | null
+          area_externa: number | null
+          area_interna: number | null
+          area_lote: number | null
+          bairro: string | null
+          banheiros: number | null
+          cep: string | null
+          cidade: string | null
+          codigo: string | null
+          complemento: string | null
+          condominio: number | null
+          corretor_email: string | null
+          created_at: string | null
+          descricao: string | null
+          destinacao: string[] | null
+          endereco: string | null
+          estado: string | null
+          finalidade: string | null
+          financiamento: string | null
+          fotos: string[] | null
+          id: string
+          iptu: number | null
+          lazer: string[] | null
+          nome_proprietario: string | null
+          numero: string | null
+          quartos: number | null
+          salas: number | null
+          status: string | null
+          suites: number | null
+          telefone_proprietario: string | null
+          tipo: string | null
+          tipo_vaga: string | null
+          updated_at: string | null
+          vagas: number | null
+          valor: number | null
+          varandas: number | null
+        }
+        Insert: {
+          andar?: number | null
+          area_externa?: number | null
+          area_interna?: number | null
+          area_lote?: number | null
+          bairro?: string | null
+          banheiros?: number | null
+          cep?: string | null
+          cidade?: string | null
+          codigo?: string | null
+          complemento?: string | null
+          condominio?: number | null
+          corretor_email?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          destinacao?: string[] | null
+          endereco?: string | null
+          estado?: string | null
+          finalidade?: string | null
+          financiamento?: string | null
+          fotos?: string[] | null
+          id?: string
+          iptu?: number | null
+          lazer?: string[] | null
+          nome_proprietario?: string | null
+          numero?: string | null
+          quartos?: number | null
+          salas?: number | null
+          status?: string | null
+          suites?: number | null
+          telefone_proprietario?: string | null
+          tipo?: string | null
+          tipo_vaga?: string | null
+          updated_at?: string | null
+          vagas?: number | null
+          valor?: number | null
+          varandas?: number | null
+        }
+        Update: {
+          andar?: number | null
+          area_externa?: number | null
+          area_interna?: number | null
+          area_lote?: number | null
+          bairro?: string | null
+          banheiros?: number | null
+          cep?: string | null
+          cidade?: string | null
+          codigo?: string | null
+          complemento?: string | null
+          condominio?: number | null
+          corretor_email?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          destinacao?: string[] | null
+          endereco?: string | null
+          estado?: string | null
+          finalidade?: string | null
+          financiamento?: string | null
+          fotos?: string[] | null
+          id?: string
+          iptu?: number | null
+          lazer?: string[] | null
+          nome_proprietario?: string | null
+          numero?: string | null
+          quartos?: number | null
+          salas?: number | null
+          status?: string | null
+          suites?: number | null
+          telefone_proprietario?: string | null
+          tipo?: string | null
+          tipo_vaga?: string | null
+          updated_at?: string | null
+          vagas?: number | null
+          valor?: number | null
+          varandas?: number | null
+        }
+        Relationships: []
+      }
       sent_records: {
         Row: {
           acao: string
