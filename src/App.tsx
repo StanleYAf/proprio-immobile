@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import RegisterProperty from "./pages/RegisterProperty";
 import ListaImoveis from "./pages/ListaImoveis";
 import DetalhesImovel from "./pages/DetalhesImovel";
+import ListaAtendimentos from "./pages/ListaAtendimentos";
 import NovoAtendimento from "./pages/NovoAtendimento";
 import DeactivateProperty from "./pages/DeactivateProperty";
 import AuditLogs from "./pages/AuditLogs";
