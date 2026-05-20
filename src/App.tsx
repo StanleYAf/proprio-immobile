@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import RegisterProperty from "./pages/RegisterProperty";
 import ListaImoveis from "./pages/ListaImoveis";
 import DetalhesImovel from "./pages/DetalhesImovel";
+import ListaAtendimentos from "./pages/ListaAtendimentos";
 import NovoAtendimento from "./pages/NovoAtendimento";
 import DeactivateProperty from "./pages/DeactivateProperty";
 import AuditLogs from "./pages/AuditLogs";
@@ -61,6 +62,7 @@ const AppRoutes = () => (
     <Route path="/imovel/cadastrar" element={<ProtectedRoute><RegisterProperty /></ProtectedRoute>} />
     <Route path="/imoveis" element={<ProtectedRoute><ListaImoveis /></ProtectedRoute>} />
     <Route path="/imoveis/:id" element={<ProtectedRoute><DetalhesImovel /></ProtectedRoute>} />
+    <Route path="/atendimentos" element={<ProtectedRoute><ListaAtendimentos /></ProtectedRoute>} />
     <Route path="/atendimentos/novo" element={<ProtectedRoute><NovoAtendimento /></ProtectedRoute>} />
     <Route path="/imovel/desativar" element={<ProtectedRoute><DeactivateProperty /></ProtectedRoute>} />
     <Route path="/admin" element={<AdminOrMasterRoute><AdminPanel /></AdminOrMasterRoute>} />
