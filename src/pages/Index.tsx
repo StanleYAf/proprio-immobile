@@ -1,8 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { useQuery } from '@tanstack/react-query';
 import AppLayout from '@/components/AppLayout';
-import { Building2, ShieldCheck, ClipboardList, UserPlus } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { Building2, ShieldCheck, ClipboardList, UserPlus, Users, PlusCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -10,17 +13,75 @@ export default function Dashboard() {
 
   const isMasterOrAdmin = user?.classificacao === 'master' || user?.isAdmin;
   const canRegisterUsers = isMasterOrAdmin || user?.classificacao === 'stand1';
+  const email = user?.email || '';
+
+  const { data: imoveisAtivos = 0 } = useQuery({
+    queryKey: ['count-imoveis-ativos'],
+    queryFn: async () => {
+      const { count } = await supabase.from('imoveis').select('*', { count: 'exact', head: true }).eq('status', 'ativo');
+      return count || 0;
+    },
+  });
+
+  const { data: atendimentosAbertos = 0 } = useQuery({
+    queryKey: ['count-atendimentos-abertos', email, isMasterOrAdmin],
+    queryFn: async () => {
+      let q = supabase.from('atendimentos').select('*', { count: 'exact', head: true })
+        .not('status', 'in', '(fechado,perdido)');
+      if (!isMasterOrAdmin && email) q = q.eq('corretor_email', email);
+      const { count } = await q;
+      return count || 0;
+    },
+  });
+
+  const { data: clientesCount = 0 } = useQuery({
+    queryKey: ['count-clientes', email, isMasterOrAdmin],
+    queryFn: async () => {
+      let q = supabase.from('clientes').select('*', { count: 'exact', head: true });
+      if (!isMasterOrAdmin && email) q = q.eq('corretor_email', email);
+      const { count } = await q;
+      return count || 0;
+    },
+  });
+
+  const metrics = [
+    { label: 'Imóveis ativos', value: imoveisAtivos, icon: Building2, onClick: () => navigate('/imoveis') },
+    { label: 'Atendimentos abertos', value: atendimentosAbertos, icon: ClipboardList, onClick: () => navigate('/atendimentos') },
+    { label: 'Clientes', value: clientesCount, icon: Users, onClick: () => { toast('Módulo de clientes em breve'); navigate('/atendimentos'); } },
+  ];
 
   const actions = [
     {
-      label: 'Cadastrar Imóvel',
-      description: 'Registre um novo imóvel no sistema',
+      label: 'Ver Imóveis',
+      description: 'Lista completa de imóveis',
       icon: Building2,
-      path: '/imovel/cadastrar',
+      path: '/imoveis',
       color: 'bg-primary',
       iconColor: 'text-primary-foreground',
       textColor: 'text-primary-foreground',
       descColor: 'text-primary-foreground/60',
+      show: true,
+    },
+    {
+      label: 'Atendimentos',
+      description: 'Gerencie seus atendimentos',
+      icon: ClipboardList,
+      path: '/atendimentos',
+      color: 'bg-card border border-border/50',
+      iconColor: 'text-accent',
+      textColor: 'text-card-foreground',
+      descColor: 'text-muted-foreground',
+      show: true,
+    },
+    {
+      label: 'Cadastrar Imóvel',
+      description: 'Registre um novo imóvel no sistema',
+      icon: PlusCircle,
+      path: '/imovel/cadastrar',
+      color: 'bg-card border border-border/50',
+      iconColor: 'text-accent',
+      textColor: 'text-card-foreground',
+      descColor: 'text-muted-foreground',
       show: true,
     },
     {
@@ -68,7 +129,6 @@ export default function Dashboard() {
 
   return (
     <AppLayout title={panelTitle}>
-      {/* Greeting */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -81,7 +141,30 @@ export default function Dashboard() {
         <p className="text-xs text-muted-foreground/60 mt-0.5">O que deseja fazer hoje?</p>
       </motion.div>
 
-      <div className="grid gap-3">
+      {/* Métricas */}
+      <div className="mb-6 -mx-4 px-4 overflow-x-auto">
+        <div className="flex gap-3 min-w-max md:min-w-0 md:grid md:grid-cols-3">
+          {metrics.map((m, i) => (
+            <motion.button
+              key={m.label}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 + i * 0.05 }}
+              onClick={m.onClick}
+              className="bg-card border border-border/50 rounded-2xl p-4 min-w-[150px] text-left hover:border-primary/40 transition-colors shadow-sm"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <m.icon className="w-4 h-4 text-muted-foreground" />
+              </div>
+              <p className="text-3xl font-bold text-primary leading-none">{m.value}</p>
+              <p className="text-xs text-muted-foreground mt-2">{m.label}</p>
+            </motion.button>
+          ))}
+        </div>
+      </div>
+
+      {/* Ações */}
+      <div className="grid gap-3 md:grid-cols-2">
         {visibleActions.map((a, i) => (
           <motion.button
             key={a.path}
