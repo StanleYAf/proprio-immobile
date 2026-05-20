@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import Login from "./pages/Login";
 import Index from "./pages/Index";
 import RegisterProperty from "./pages/RegisterProperty";
+import ListaImoveis from "./pages/ListaImoveis";
 import DeactivateProperty from "./pages/DeactivateProperty";
 import AuditLogs from "./pages/AuditLogs";
 import AdminPanel from "./pages/AdminPanel";
@@ -56,6 +57,7 @@ const AppRoutes = () => (
     <Route path="/login" element={<Login />} />
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/imovel/cadastrar" element={<ProtectedRoute><RegisterProperty /></ProtectedRoute>} />
+    <Route path="/imoveis" element={<ProtectedRoute><ListaImoveis /></ProtectedRoute>} />
     <Route path="/imovel/desativar" element={<ProtectedRoute><DeactivateProperty /></ProtectedRoute>} />
     <Route path="/admin" element={<AdminOrMasterRoute><AdminPanel /></AdminOrMasterRoute>} />
     <Route path="/logs" element={<MasterRoute><AuditLogs /></MasterRoute>} />
