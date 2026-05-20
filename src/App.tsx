@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import Index from "./pages/Index";
 import RegisterProperty from "./pages/RegisterProperty";
 import ListaImoveis from "./pages/ListaImoveis";
+import DetalhesImovel from "./pages/DetalhesImovel";
 import DeactivateProperty from "./pages/DeactivateProperty";
 import AuditLogs from "./pages/AuditLogs";
 import AdminPanel from "./pages/AdminPanel";
@@ -58,6 +59,7 @@ const AppRoutes = () => (
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/imovel/cadastrar" element={<ProtectedRoute><RegisterProperty /></ProtectedRoute>} />
     <Route path="/imoveis" element={<ProtectedRoute><ListaImoveis /></ProtectedRoute>} />
+    <Route path="/imoveis/:id" element={<ProtectedRoute><DetalhesImovel /></ProtectedRoute>} />
     <Route path="/imovel/desativar" element={<ProtectedRoute><DeactivateProperty /></ProtectedRoute>} />
     <Route path="/admin" element={<AdminOrMasterRoute><AdminPanel /></AdminOrMasterRoute>} />
     <Route path="/logs" element={<MasterRoute><AuditLogs /></MasterRoute>} />
