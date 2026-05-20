@@ -65,6 +65,7 @@ const AppRoutes = () => (
     <Route path="/imoveis/:id" element={<ProtectedRoute><DetalhesImovel /></ProtectedRoute>} />
     <Route path="/atendimentos" element={<ProtectedRoute><ListaAtendimentos /></ProtectedRoute>} />
     <Route path="/atendimentos/novo" element={<ProtectedRoute><NovoAtendimento /></ProtectedRoute>} />
+    <Route path="/atendimentos/:id" element={<ProtectedRoute><DetalhesAtendimento /></ProtectedRoute>} />
     <Route path="/imovel/desativar" element={<ProtectedRoute><DeactivateProperty /></ProtectedRoute>} />
     <Route path="/admin" element={<AdminOrMasterRoute><AdminPanel /></AdminOrMasterRoute>} />
     <Route path="/logs" element={<MasterRoute><AuditLogs /></MasterRoute>} />
