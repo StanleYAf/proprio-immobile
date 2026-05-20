@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import FormField from '@/components/FormField';
@@ -7,14 +8,30 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth';
 import { sendToWebhook } from '@/lib/webhook';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ImagePlus, X } from 'lucide-react';
+
+const parseBRL = (v: string): number | null => {
+  if (!v) return null;
+  const n = parseFloat(v.replace(/\./g, '').replace(',', '.'));
+  return isNaN(n) ? null : n;
+};
+const parseInt10 = (v: string): number | null => {
+  if (!v) return null;
+  const n = parseInt(v.replace(/\D/g, ''), 10);
+  return isNaN(n) ? null : n;
+};
 
 export default function RegisterProperty() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [cep, setCep] = useState('');
+  const [status, setStatus] = useState<'ativo' | 'inativo'>('ativo');
+  const [photos, setPhotos] = useState<File[]>([]);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     tipo: '', valor: '', condominio: '', iptu: '', endereco: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '', descricao: '',
     nome_proprietario: '', telefone_proprietario: '',
@@ -108,30 +125,132 @@ export default function RegisterProperty() {
     }
   };
 
+  const handlePhotosSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const remaining = 20 - photos.length;
+    const arr = Array.from(files).slice(0, remaining).filter((f) => {
+      if (!f.type.startsWith('image/')) {
+        toast.error(`"${f.name}" não é uma imagem`);
+        return false;
+      }
+      if (f.size > 10 * 1024 * 1024) {
+        toast.error(`"${f.name}" excede 10MB`);
+        return false;
+      }
+      return true;
+    });
+    setPhotos((p) => [...p, ...arr]);
+    if (photoInputRef.current) photoInputRef.current.value = '';
+  };
+
+  const removePhoto = (idx: number) => setPhotos((p) => p.filter((_, i) => i !== idx));
+
+  const previews = useMemo(() => photos.map((f) => URL.createObjectURL(f)), [photos]);
+
+  const generateCodigo = async (): Promise<string> => {
+    const { count, error } = await supabase
+      .from('imoveis')
+      .select('*', { count: 'exact', head: true });
+    if (error) throw error;
+    const next = (count ?? 0) + 1;
+    return `IMV-${String(next).padStart(4, '0')}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.tipo || !form.valor || !form.finalidade || !destinacao.comercial && !destinacao.residencial || !cep || !form.endereco || !form.numero || !form.bairro || !form.cidade || !form.estado || !form.nome_proprietario || !form.telefone_proprietario || !form.descricao) {
+    if (!form.tipo || !form.valor || !form.finalidade || (!destinacao.comercial && !destinacao.residencial) || !cep || !form.endereco || !form.numero || !form.bairro || !form.cidade || !form.estado || !form.nome_proprietario || !form.telefone_proprietario || !form.descricao) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
     setLoading(true);
-    const res = await sendToWebhook({
-      tipo: 'imovel', acao: 'cadastrar',
-      usuario: { email: user!.email, name: user!.name },
-      dados: { ...form, cep, destinacao, lazer: Object.keys(lazer).filter(k => lazer[k]), aceita_financiamento: financiamento, titulo: tituloGerado },
-    });
-    setLoading(false);
-    if (res.success) {
-      const codigo = res.data?.codigo_imovel || res.data?.codigo || res.data?.code || res.data?.id || '';
-      toast.success(codigo ? `Imóvel cadastrado com sucesso! Código: ${codigo}` : 'Imóvel cadastrado com sucesso!');
-      setForm({ tipo: '', valor: '', condominio: '', iptu: '', endereco: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '', descricao: '', nome_proprietario: '', telefone_proprietario: '', quartos: '', suites: '', vagas: '', finalidade: '', tipo_complemento: '', andar: '', banheiros: '', salas: '', varandas: '', vagas_garagem: '', tipo_vaga: '', torres_blocos: '', num_andares: '', unidade_por_andar: '', total_unidades: '', area_interna: '', area_externa: '', area_lote: '' });
-      setCep('');
-      setDestinacao({ comercial: false, residencial: false });
-      setLazer({});
-      setFinanciamento('');
-      
-    } else {
-      toast.error(res.error || 'Erro ao enviar');
+    try {
+      const codigo = await generateCodigo();
+      const destinacaoArr = [
+        destinacao.comercial && 'comercial',
+        destinacao.residencial && 'residencial',
+      ].filter(Boolean) as string[];
+      const lazerArr = Object.keys(lazer).filter((k) => lazer[k]);
+
+      const payload = {
+        codigo,
+        tipo: form.tipo,
+        finalidade: form.finalidade,
+        destinacao: destinacaoArr,
+        status,
+        valor: parseBRL(form.valor),
+        condominio: parseBRL(form.condominio),
+        iptu: parseBRL(form.iptu),
+        cep,
+        endereco: form.endereco,
+        numero: form.numero,
+        complemento: form.complemento || null,
+        bairro: form.bairro,
+        cidade: form.cidade,
+        estado: form.estado,
+        area_interna: parseBRL(form.area_interna),
+        area_externa: parseBRL(form.area_externa),
+        area_lote: parseBRL(form.area_lote),
+        quartos: parseInt10(form.quartos),
+        suites: parseInt10(form.suites),
+        banheiros: parseInt10(form.banheiros),
+        vagas: parseInt10(form.vagas_garagem),
+        tipo_vaga: form.tipo_vaga || null,
+        andar: parseInt10(form.andar),
+        salas: parseInt10(form.salas),
+        varandas: parseInt10(form.varandas),
+        descricao: form.descricao,
+        lazer: lazerArr,
+        financiamento: financiamento || null,
+        nome_proprietario: form.nome_proprietario,
+        telefone_proprietario: form.telefone_proprietario,
+        corretor_email: user?.email ?? null,
+        fotos: [] as string[],
+      };
+
+      const { data: inserted, error: insertError } = await supabase
+        .from('imoveis')
+        .insert(payload)
+        .select('id')
+        .single();
+      if (insertError) throw insertError;
+      const imovelId = inserted.id;
+
+      // Upload photos
+      const fotosUrls: string[] = [];
+      for (const file of photos) {
+        const ts = Date.now();
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const path = `${imovelId}/${ts}_${safeName}`;
+        const { error: upErr } = await supabase.storage
+          .from('property-images')
+          .upload(path, file, { cacheControl: '3600', upsert: false });
+        if (upErr) {
+          toast.error(`Falha ao enviar ${file.name}`);
+          continue;
+        }
+        const { data: pub } = supabase.storage.from('property-images').getPublicUrl(path);
+        fotosUrls.push(pub.publicUrl);
+      }
+
+      if (fotosUrls.length > 0) {
+        await supabase.from('imoveis').update({ fotos: fotosUrls }).eq('id', imovelId);
+      }
+
+      // Webhook (best-effort)
+      await sendToWebhook({
+        tipo: 'imovel', acao: 'cadastrar',
+        usuario: { email: user!.email, name: user!.name },
+        dados: { ...form, cep, codigo, status, destinacao: destinacaoArr, lazer: lazerArr, aceita_financiamento: financiamento, titulo: tituloGerado, fotos: fotosUrls, imovel_id: imovelId },
+      });
+
+      toast.success(`Imóvel ${codigo} cadastrado com sucesso!`);
+      navigate(`/imoveis/${imovelId}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao salvar imóvel';
+      toast.error(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -175,6 +294,20 @@ export default function RegisterProperty() {
             </SelectContent>
           </Select>
         </div>
+
+        <div className="space-y-1">
+          <Label className="text-sm font-medium text-foreground">Status</Label>
+          <Select value={status} onValueChange={(v) => setStatus(v as 'ativo' | 'inativo')}>
+            <SelectTrigger className="w-full h-11 rounded-xl bg-card border-border">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-popover border-border z-50">
+              <SelectItem value="ativo">Ativo</SelectItem>
+              <SelectItem value="inativo">Inativo</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <FormField label="Valor (R$)" name="valor" value={form.valor} onChange={handleCurrencyChange} required placeholder="0,00" />
 
         <div className="grid grid-cols-2 gap-3">
@@ -286,7 +419,42 @@ export default function RegisterProperty() {
           </div>
         </div>
 
-        
+        <div className="space-y-2">
+          <Label className="text-sm font-bold text-foreground uppercase">Fotos do Imóvel</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {previews.map((url, i) => (
+              <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                <img src={url} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removePhoto(i)}
+                  className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+            {photos.length < 20 && (
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                className="aspect-square rounded-lg border-2 border-dashed border-border bg-muted/50 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+              >
+                <ImagePlus className="w-6 h-6" />
+                <span className="text-xs">Adicionar</span>
+              </button>
+            )}
+          </div>
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handlePhotosSelected}
+            className="hidden"
+          />
+          <p className="text-xs text-muted-foreground">{photos.length}/20 fotos • Máx 10MB cada</p>
+        </div>
 
         {tituloGerado && (
           <div className="rounded-xl border border-accent/30 bg-accent/5 p-4 space-y-1">
@@ -296,7 +464,7 @@ export default function RegisterProperty() {
         )}
 
         <Button type="submit" className="w-full h-12 text-base font-semibold mt-2" disabled={loading}>
-          {loading ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Enviando...</> : 'Enviar Cadastro'}
+          {loading ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Salvando...</> : 'Enviar Cadastro'}
         </Button>
       </form>
     </AppLayout>
