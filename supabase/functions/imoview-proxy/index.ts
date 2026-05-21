@@ -135,8 +135,8 @@ async function getCodigoAcesso(chave: string, email: string, senha: string): Pro
   const senhaMD5 = md5Hash(senha).toUpperCase();
   const url = new URL(`${REST_BASE}/Usuario/App_ValidarAcesso`);
   url.searchParams.set('email', email);
-  // Try MD5 first, fallback to plain if needed
-  url.searchParams.set('senha', senhaMD5);
+  // TEMP: test plain text password
+  url.searchParams.set('senha', senha);
 
   const res = await fetch(url.toString(), {
     method: 'GET',
