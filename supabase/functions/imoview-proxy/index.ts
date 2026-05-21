@@ -1,5 +1,6 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { parse as parseXml } from 'https://deno.land/x/xml@2.1.3/mod.ts';
+import { createHash } from 'https://deno.land/std/hash/mod.ts';
 
 const REST_BASE = 'https://api.imoview.com.br';
 const LEGACY_BASE = 'https://ws.imoview.com.br/Servicos.asmx';
