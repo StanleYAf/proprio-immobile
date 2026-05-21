@@ -257,7 +257,7 @@ export default function ListaImoveis() {
   const stats = useMemo(() => {
     const total = filtered.length;
     const precos = filtered.map((i) => parseValor(i.valor)).filter((v): v is number => v != null && v > 0);
-    const areas = filtered.map((i) => i.area_interna).filter((v): v is number => typeof v === 'number');
+    const areas = filtered.map((i) => parseValor(i.area_interna)).filter((v): v is number => v != null && v > 0);
     const precoMedio = precos.length ? precos.reduce((a, b) => a + b, 0) / precos.length : 0;
     const areaMedia = areas.length ? areas.reduce((a, b) => a + b, 0) / areas.length : 0;
     const ativos = filtered.filter((i) => i.status === 'ativo').length;
