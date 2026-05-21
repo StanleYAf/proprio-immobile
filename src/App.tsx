@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import RegisterProperty from "./pages/RegisterProperty";
 import ListaImoveis from "./pages/ListaImoveis";
 import DetalhesImovel from "./pages/DetalhesImovel";
+import ImoveisImoview from "./pages/ImoveisImoview";
 import ListaAtendimentos from "./pages/ListaAtendimentos";
 import NovoAtendimento from "./pages/NovoAtendimento";
 import DetalhesAtendimento from "./pages/DetalhesAtendimento";
@@ -62,6 +63,7 @@ const AppRoutes = () => (
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/imovel/cadastrar" element={<ProtectedRoute><RegisterProperty /></ProtectedRoute>} />
     <Route path="/imoveis" element={<ProtectedRoute><ListaImoveis /></ProtectedRoute>} />
+    <Route path="/imoveis/imoview" element={<ProtectedRoute><ImoveisImoview /></ProtectedRoute>} />
     <Route path="/imoveis/:id" element={<ProtectedRoute><DetalhesImovel /></ProtectedRoute>} />
     <Route path="/atendimentos" element={<ProtectedRoute><ListaAtendimentos /></ProtectedRoute>} />
     <Route path="/atendimentos/novo" element={<ProtectedRoute><NovoAtendimento /></ProtectedRoute>} />
