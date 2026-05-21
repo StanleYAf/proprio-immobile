@@ -1,6 +1,6 @@
 import { useAuth } from '@/lib/auth';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Home, ArrowLeft, Building2, ClipboardList, PlusCircle, UserPlus, BarChart3, Settings, Link2 } from 'lucide-react';
+import { LogOut, Home, ArrowLeft, Building2, ClipboardList, PlusCircle, UserPlus, BarChart3, Settings } from 'lucide-react';
 import { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -21,7 +21,7 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
     { label: 'Dashboard', path: '/', icon: Home, show: true, mobile: true },
     { label: 'Imóveis', path: '/imoveis', icon: Building2, show: true, mobile: true },
     { label: 'Atendimentos', path: '/atendimentos', icon: ClipboardList, show: true, mobile: true },
-    { label: 'Imoview', path: '/imoveis/imoview', icon: Link2, show: true },
+    
     { label: 'Cadastrar', path: '/imovel/cadastrar', icon: PlusCircle, show: true, mobile: true },
     { label: 'Usuários', path: '/usuarios/cadastrar', icon: UserPlus, show: canRegisterUsers },
     { label: 'Logs', path: '/logs', icon: BarChart3, show: isMaster },
