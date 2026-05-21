@@ -21,6 +21,7 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
     { label: 'Dashboard', path: '/', icon: Home, show: true, mobile: true },
     { label: 'Imóveis', path: '/imoveis', icon: Building2, show: true, mobile: true },
     { label: 'Atendimentos', path: '/atendimentos', icon: ClipboardList, show: true, mobile: true },
+    { label: 'Imoview', path: '/imoveis/imoview', icon: Link2, show: true },
     { label: 'Cadastrar', path: '/imovel/cadastrar', icon: PlusCircle, show: true, mobile: true },
     { label: 'Usuários', path: '/usuarios/cadastrar', icon: UserPlus, show: canRegisterUsers },
     { label: 'Logs', path: '/logs', icon: BarChart3, show: isMaster },
