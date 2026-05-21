@@ -132,11 +132,10 @@ let cachedToken: { codigo: string; expiresAt: number } | null = null;
 async function getCodigoAcesso(chave: string, email: string, senha: string): Promise<string> {
   if (cachedToken && cachedToken.expiresAt > Date.now()) return cachedToken.codigo;
 
-  const senhaMD5 = md5Hash(senha).toUpperCase();
+  const senhaMD5 = md5Hash(senha);
   const url = new URL(`${REST_BASE}/Usuario/App_ValidarAcesso`);
   url.searchParams.set('email', email);
-  // TEMP: test plain text password
-  url.searchParams.set('senha', senha);
+  url.searchParams.set('senha', senhaMD5);
 
   const res = await fetch(url.toString(), {
     method: 'GET',
