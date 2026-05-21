@@ -134,7 +134,7 @@ function mapImoviewToImovel(raw: any): Imovel {
     tipo: raw.tipo ?? null,
     finalidade: raw.finalidade ?? null,
     status: (raw.situacao ?? 'ativo').toString().toLowerCase(),
-    valor: typeof raw.valor === 'number' ? raw.valor : (raw.valor ? Number(raw.valor) : null),
+    valor: parseValor(raw.valor),
     bairro: raw.bairro ?? null,
     cidade: raw.cidade ?? null,
     estado: raw.estado ?? null,
