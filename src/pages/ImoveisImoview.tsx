@@ -18,22 +18,24 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
 type Filtros = {
-  status: string;
-  finalidade: string;
-  tipo: string;
+  finalidade: number; // 1=aluguel, 2=venda
   bairro: string;
   cidade: string;
-  numeroRegistros: number;
+  numeroquartos: string;
+  valorde: string;
+  valorate: string;
 };
 
 const initialFiltros: Filtros = {
-  status: '',
-  finalidade: '',
-  tipo: '',
+  finalidade: 2,
   bairro: '',
   cidade: '',
-  numeroRegistros: 12,
+  numeroquartos: '',
+  valorde: '',
+  valorate: '',
 };
+
+const PAGE_SIZE = 20;
 
 const fmtMoney = (v?: number | string | null) => {
   const n = typeof v === 'string' ? parseFloat(v) : v;
@@ -42,20 +44,26 @@ const fmtMoney = (v?: number | string | null) => {
 };
 
 function getFotos(imovel: any): string[] {
-  const raw = imovel?.Photos || imovel?.photos || imovel?.fotos || imovel?.Fotos || [];
+  const raw = imovel?.fotos || [];
   if (!Array.isArray(raw)) return [];
-  return raw.map((f: any) => (typeof f === 'string' ? f : f?.URL || f?.url || f?.Url)).filter(Boolean);
+  const arr = raw.map((f: any) => (typeof f === 'string' ? f : f?.url || f?.URL || f?.Url)).filter(Boolean);
+  if (arr.length === 0 && imovel?.urlfotoprincipal) arr.push(imovel.urlfotoprincipal);
+  return arr;
+}
+
+function precoPrincipal(imovel: any) {
+  return imovel?.valor;
 }
 
 function ImovelCard({ imovel, onOpen }: { imovel: any; onOpen: () => void }) {
   const fotos = getFotos(imovel);
   const [idx, setIdx] = useState(0);
-  const foto = fotos[idx];
+  const foto = fotos[idx] || imovel?.urlfotoprincipal;
   return (
     <Card className="rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
       <div className="relative aspect-[16/10] bg-muted">
         {foto ? (
-          <img src={foto} alt={imovel.TipoImovel || 'Imóvel'} className="w-full h-full object-cover" />
+          <img src={foto} alt={imovel.tipo || 'Imóvel'} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground">
             <Building2 className="w-12 h-12" />
@@ -74,27 +82,27 @@ function ImovelCard({ imovel, onOpen }: { imovel: any; onOpen: () => void }) {
             <div className="absolute bottom-2 right-2 text-[10px] bg-background/80 px-2 py-0.5 rounded-full">{idx + 1}/{fotos.length}</div>
           </>
         )}
-        {imovel.Status && (
-          <Badge className="absolute top-2 left-2" variant="secondary">{imovel.Status}</Badge>
+        {imovel.situacao && (
+          <Badge className="absolute top-2 left-2" variant="secondary">{imovel.situacao}</Badge>
         )}
       </div>
       <CardContent className="p-4 space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs text-muted-foreground">#{imovel.CodigoImovel || imovel.codigo || '—'}</span>
-          <span className="text-base font-semibold">{fmtMoney(imovel.ValorVenda || imovel.ValorLocacao)}</span>
+          <span className="text-xs text-muted-foreground">#{imovel.codigo || '—'}</span>
+          <span className="text-base font-semibold">{fmtMoney(precoPrincipal(imovel))}</span>
         </div>
         <p className="text-sm font-medium truncate">
-          {[imovel.TipoImovel, imovel.Bairro, imovel.Cidade].filter(Boolean).join(' · ') || 'Imóvel'}
+          {[imovel.tipo, imovel.bairro, imovel.cidade].filter(Boolean).join(' · ') || 'Imóvel'}
         </p>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          {imovel.Dormitorios != null && <span className="flex items-center gap-1"><BedDouble className="w-3.5 h-3.5" />{imovel.Dormitorios}</span>}
-          {imovel.Vagas != null && <span className="flex items-center gap-1"><Car className="w-3.5 h-3.5" />{imovel.Vagas}</span>}
-          {(imovel.AreaUtil || imovel.AreaTotal) && <span className="flex items-center gap-1"><Ruler className="w-3.5 h-3.5" />{imovel.AreaUtil || imovel.AreaTotal}m²</span>}
+          {imovel.numeroquartos != null && <span className="flex items-center gap-1"><BedDouble className="w-3.5 h-3.5" />{imovel.numeroquartos}</span>}
+          {imovel.numerovagas != null && <span className="flex items-center gap-1"><Car className="w-3.5 h-3.5" />{imovel.numerovagas}</span>}
+          {imovel.areaprincipal != null && <span className="flex items-center gap-1"><Ruler className="w-3.5 h-3.5" />{imovel.areaprincipal}m²</span>}
         </div>
-        {(imovel.NomeProprietario || imovel.TelefoneProprietario) && (
+        {(imovel.proprietarios?.[0]?.nome || imovel.proprietarios?.[0]?.telefone) && (
           <div className="text-xs text-muted-foreground border-t pt-2">
-            <p className="truncate">{imovel.NomeProprietario || '—'}</p>
-            {imovel.TelefoneProprietario && <p className="truncate">{imovel.TelefoneProprietario}</p>}
+            <p className="truncate">{imovel.proprietarios?.[0]?.nome || '—'}</p>
+            {imovel.proprietarios?.[0]?.telefone && <p className="truncate">{imovel.proprietarios[0].telefone}</p>}
           </div>
         )}
         <Button onClick={onOpen} variant="outline" size="sm" className="w-full mt-2">Ver detalhes</Button>
@@ -113,21 +121,35 @@ export default function ImoveisImoview() {
   const [showFiltros, setShowFiltros] = useState(true);
   const [importing, setImporting] = useState(false);
 
-  const queryParams = useMemo(() => ({
-    numeroPagina: pagina,
-    numeroRegistros: filtros.numeroRegistros,
-    status: filtros.status || undefined,
-    finalidade: filtros.finalidade || undefined,
-    tipo: filtros.tipo || undefined,
-    bairro: filtros.bairro || undefined,
-    cidade: filtros.cidade || undefined,
-  }), [filtros, pagina]);
+  const queryParams = useMemo(() => {
+    const p: Record<string, any> = {
+      numeroPagina: pagina,
+      numeroRegistros: PAGE_SIZE,
+      finalidade: filtros.finalidade,
+    };
+    if (filtros.numeroquartos) p.numeroquartos = Number(filtros.numeroquartos);
+    if (filtros.valorde) p.valorde = Number(filtros.valorde);
+    if (filtros.valorate) p.valorate = Number(filtros.valorate);
+    return p;
+  }, [filtros, pagina]);
 
-  const { data, isLoading, isError, error, refetch, isFetching } = useImoviewImoveis(queryParams);
+  const { data, isLoading, isError, error, refetch, isFetching } = useImoviewImoveis(queryParams as any);
 
   const configMissing = (error as any)?.code === 'CONFIG_MISSING';
-  const imoveis: any[] = (data as any)?.Imoveis || (data as any)?.imoveis || (Array.isArray(data) ? (data as any) : []) || [];
-  const totalPaginas: number = (data as any)?.TotalPaginas || (data as any)?.totalPaginas || 1;
+  const imoveis: any[] = (data as any)?.lista || [];
+  const quantidade: number = (data as any)?.quantidade ?? imoveis.length;
+  const menorvalor: number | undefined = (data as any)?.menorvalor;
+  const maiorvalor: number | undefined = (data as any)?.maiorvalor;
+  const totalPaginas: number = Math.max(1, Math.ceil(quantidade / PAGE_SIZE));
+
+  // Filtro client-side de bairro/cidade (caso a API não filtre por texto)
+  const imoveisFiltrados = useMemo(() => {
+    return imoveis.filter((im) => {
+      if (filtros.bairro && !String(im.bairro || '').toLowerCase().includes(filtros.bairro.toLowerCase())) return false;
+      if (filtros.cidade && !String(im.cidade || '').toLowerCase().includes(filtros.cidade.toLowerCase())) return false;
+      return true;
+    });
+  }, [imoveis, filtros.bairro, filtros.cidade]);
 
   const aplicar = () => { setFiltros(draft); setPagina(1); };
   const limpar = () => { setDraft(initialFiltros); setFiltros(initialFiltros); setPagina(1); };
@@ -136,30 +158,30 @@ export default function ImoveisImoview() {
     try {
       setImporting(true);
       const fotos = getFotos(imovel);
-      const codigo = `IMV-${imovel.CodigoImovel || imovel.codigo || Date.now()}`;
+      const codigo = `IMV-${imovel.codigo || Date.now()}`;
       const payload: any = {
         codigo,
-        tipo: imovel.TipoImovel || null,
-        finalidade: imovel.Finalidade || null,
-        status: imovel.Status || 'ativo',
-        valor: imovel.ValorVenda || imovel.ValorLocacao || null,
-        condominio: imovel.ValorCondominio || null,
-        iptu: imovel.ValorIPTU || null,
-        endereco: imovel.Logradouro || null,
-        numero: imovel.Numero || null,
-        complemento: imovel.Complemento || null,
-        bairro: imovel.Bairro || null,
-        cidade: imovel.Cidade || null,
-        estado: imovel.Estado || null,
-        area_interna: imovel.AreaUtil || null,
-        area_lote: imovel.AreaTotal || null,
-        quartos: imovel.Dormitorios || null,
-        suites: imovel.Suites || null,
-        banheiros: imovel.Banheiros || null,
-        vagas: imovel.Vagas || null,
-        descricao: imovel.Descricao || null,
-        nome_proprietario: imovel.NomeProprietario || null,
-        telefone_proprietario: imovel.TelefoneProprietario || null,
+        tipo: imovel.tipo || null,
+        finalidade: imovel.finalidade || null,
+        status: imovel.situacao || 'ativo',
+        valor: imovel.valor || null,
+        condominio: imovel.valorcondominio || null,
+        iptu: imovel.valoriptu || null,
+        endereco: imovel.endereco || null,
+        numero: imovel.numero || null,
+        complemento: imovel.complemento || null,
+        bairro: imovel.bairro || null,
+        cidade: imovel.cidade || null,
+        estado: imovel.estado || null,
+        area_interna: imovel.areainterna || imovel.areaprincipal || null,
+        area_lote: imovel.arealote || null,
+        quartos: imovel.numeroquartos || null,
+        suites: imovel.numerosuites || null,
+        banheiros: imovel.numerobanhos || null,
+        vagas: imovel.numerovagas || null,
+        descricao: imovel.descricao || null,
+        nome_proprietario: imovel.proprietarios?.[0]?.nome || null,
+        telefone_proprietario: imovel.proprietarios?.[0]?.telefone || null,
         fotos,
         corretor_email: user?.email || null,
       };
@@ -190,48 +212,43 @@ export default function ImoveisImoview() {
           <CollapsibleTrigger asChild>
             <Button variant="outline" size="sm"><Filter className="w-4 h-4 mr-2" />Filtros</Button>
           </CollapsibleTrigger>
-          <span className="text-xs text-muted-foreground">{isFetching ? 'Atualizando…' : `${imoveis.length} resultado(s)`}</span>
+          <span className="text-xs text-muted-foreground">
+            {isFetching ? 'Atualizando…' : `${quantidade} imóve${quantidade === 1 ? 'l' : 'is'} encontrado${quantidade === 1 ? '' : 's'}`}
+          </span>
         </div>
+
+        {(menorvalor || maiorvalor) && (
+          <div className="text-xs text-muted-foreground mb-2">
+            Faixa de preço: {fmtMoney(menorvalor)} – {fmtMoney(maiorvalor)}
+          </div>
+        )}
+
         <CollapsibleContent>
           <Card className="rounded-2xl">
             <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
-                <Label className="text-xs">Status</Label>
-                <Select value={draft.status || 'all'} onValueChange={(v) => setDraft({ ...draft, status: v === 'all' ? '' : v })}>
-                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                  <SelectContent className="z-[9999]">
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="Disponivel">Disponível</SelectItem>
-                    <SelectItem value="Vendido">Vendido</SelectItem>
-                    <SelectItem value="Alugado">Alugado</SelectItem>
-                    <SelectItem value="Inativo">Inativo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
                 <Label className="text-xs">Finalidade</Label>
-                <Select value={draft.finalidade || 'all'} onValueChange={(v) => setDraft({ ...draft, finalidade: v === 'all' ? '' : v })}>
-                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                <Select value={String(draft.finalidade)} onValueChange={(v) => setDraft({ ...draft, finalidade: Number(v) })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent className="z-[9999]">
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="Venda">Venda</SelectItem>
-                    <SelectItem value="Locacao">Locação</SelectItem>
+                    <SelectItem value="2">Venda</SelectItem>
+                    <SelectItem value="1">Aluguel</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label className="text-xs">Tipo</Label>
-                <Select value={draft.tipo || 'all'} onValueChange={(v) => setDraft({ ...draft, tipo: v === 'all' ? '' : v })}>
-                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                  <SelectContent className="z-[9999]">
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="Apartamento">Apartamento</SelectItem>
-                    <SelectItem value="Casa">Casa</SelectItem>
-                    <SelectItem value="Sala Comercial">Sala Comercial</SelectItem>
-                    <SelectItem value="Terreno">Terreno</SelectItem>
-                    <SelectItem value="Outros">Outros</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs">Quartos (mín.)</Label>
+                <Input type="number" min={0} value={draft.numeroquartos} onChange={(e) => setDraft({ ...draft, numeroquartos: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Valor de</Label>
+                  <Input type="number" value={draft.valorde} onChange={(e) => setDraft({ ...draft, valorde: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Valor até</Label>
+                  <Input type="number" value={draft.valorate} onChange={(e) => setDraft({ ...draft, valorate: e.target.value })} />
+                </div>
               </div>
               <div>
                 <Label className="text-xs">Bairro</Label>
@@ -240,17 +257,6 @@ export default function ImoveisImoview() {
               <div>
                 <Label className="text-xs">Cidade</Label>
                 <Input value={draft.cidade} onChange={(e) => setDraft({ ...draft, cidade: e.target.value })} />
-              </div>
-              <div>
-                <Label className="text-xs">Registros por página</Label>
-                <Select value={String(draft.numeroRegistros)} onValueChange={(v) => setDraft({ ...draft, numeroRegistros: Number(v) })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent className="z-[9999]">
-                    <SelectItem value="12">12</SelectItem>
-                    <SelectItem value="24">24</SelectItem>
-                    <SelectItem value="48">48</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
               <div className="md:col-span-3 flex justify-end gap-2">
                 <Button variant="outline" onClick={limpar}>Limpar</Button>
@@ -288,8 +294,8 @@ export default function ImoveisImoview() {
         <>
           <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <AnimatePresence>
-              {imoveis.map((im, i) => (
-                <motion.div key={im.CodigoImovel || im.codigo || i}
+              {imoveisFiltrados.map((im, i) => (
+                <motion.div key={im.codigo || i}
                   initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                   transition={{ duration: 0.3, delay: i * 0.05 }}>
                   <ImovelCard imovel={im} onOpen={() => setSelected(im)} />
@@ -298,7 +304,7 @@ export default function ImoveisImoview() {
             </AnimatePresence>
           </motion.div>
 
-          {imoveis.length === 0 && !isFetching && (
+          {imoveisFiltrados.length === 0 && !isFetching && (
             <p className="text-center text-sm text-muted-foreground py-12">Nenhum imóvel encontrado.</p>
           )}
 
@@ -326,21 +332,28 @@ export default function ImoveisImoview() {
 function DetalheImovelSheet({ imovel, onImport, importing }: { imovel: any; onImport: () => void; importing: boolean }) {
   const fotos = getFotos(imovel);
   const [main, setMain] = useState(0);
-  const tel = (imovel.TelefoneProprietario || '').replace(/\D/g, '');
+  const tel = String(imovel.proprietarios?.[0]?.telefone || '').replace(/\D/g, '');
   const wa = tel ? `https://wa.me/55${tel}` : null;
 
   const sections: Array<{ title: string; items: Array<[string, any]> }> = [
-    { title: 'Identificação', items: [['Código', imovel.CodigoImovel], ['Tipo', imovel.TipoImovel], ['Finalidade', imovel.Finalidade], ['Status', imovel.Status]] },
-    { title: 'Valores', items: [['Venda', fmtMoney(imovel.ValorVenda)], ['Locação', fmtMoney(imovel.ValorLocacao)], ['Condomínio', fmtMoney(imovel.ValorCondominio)], ['IPTU', fmtMoney(imovel.ValorIPTU)]] },
-    { title: 'Endereço', items: [['Logradouro', imovel.Logradouro], ['Número', imovel.Numero], ['Complemento', imovel.Complemento], ['Bairro', imovel.Bairro], ['Cidade', imovel.Cidade], ['Estado', imovel.Estado]] },
-    { title: 'Características', items: [['Área Útil', imovel.AreaUtil && `${imovel.AreaUtil}m²`], ['Área Total', imovel.AreaTotal && `${imovel.AreaTotal}m²`], ['Dormitórios', imovel.Dormitorios], ['Suítes', imovel.Suites], ['Banheiros', imovel.Banheiros], ['Vagas', imovel.Vagas]] },
-    { title: 'Proprietário', items: [['Nome', imovel.NomeProprietario], ['Telefone', imovel.TelefoneProprietario]] },
+    { title: 'Identificação', items: [['Código', imovel.codigo], ['Tipo', imovel.tipo], ['Finalidade', imovel.finalidade], ['Situação', imovel.situacao]] },
+    { title: 'Valores', items: [['Valor', fmtMoney(imovel.valor)], ['Condomínio', fmtMoney(imovel.valorcondominio)], ['IPTU', fmtMoney(imovel.valoriptu)]] },
+    { title: 'Endereço', items: [['Logradouro', imovel.endereco], ['Número', imovel.numero], ['Complemento', imovel.complemento], ['Bairro', imovel.bairro], ['Cidade', imovel.cidade], ['Estado', imovel.estado], ['CEP', imovel.cep]] },
+    { title: 'Características', items: [
+      ['Área Principal', imovel.areaprincipal && `${imovel.areaprincipal}m²`],
+      ['Área Interna', imovel.areainterna && `${imovel.areainterna}m²`],
+      ['Área Externa', imovel.areaexterna && `${imovel.areaexterna}m²`],
+      ['Área Lote', imovel.arealote && `${imovel.arealote}m²`],
+      ['Quartos', imovel.numeroquartos], ['Suítes', imovel.numerosuites], ['Banheiros', imovel.numerobanhos], ['Vagas', imovel.numerovagas], ['Andar', imovel.numeroandar],
+    ] },
+    { title: 'Proprietário', items: [['Nome', imovel.proprietarios?.[0]?.nome], ['Telefone', imovel.proprietarios?.[0]?.telefone]] },
+    { title: 'Captador', items: [['Nome', imovel.captadores?.[0]?.nome], ['Email', imovel.captadores?.[0]?.email]] },
   ];
 
   return (
     <>
       <SheetHeader>
-        <SheetTitle>{imovel.TipoImovel || 'Imóvel'} · #{imovel.CodigoImovel}</SheetTitle>
+        <SheetTitle>{imovel.tipo || 'Imóvel'} · #{imovel.codigo}</SheetTitle>
       </SheetHeader>
 
       <div className="mt-4 space-y-4">
@@ -376,10 +389,10 @@ function DetalheImovelSheet({ imovel, onImport, importing }: { imovel: any; onIm
           </div>
         ))}
 
-        {imovel.Descricao && (
+        {imovel.descricao && (
           <div>
             <h4 className="text-sm font-semibold mb-1">Descrição</h4>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{imovel.Descricao}</p>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{imovel.descricao}</p>
           </div>
         )}
 
@@ -389,9 +402,9 @@ function DetalheImovelSheet({ imovel, onImport, importing }: { imovel: any; onIm
               <a href={wa} target="_blank" rel="noreferrer"><MessageCircle className="w-4 h-4 mr-2" />WhatsApp do proprietário</a>
             </Button>
           )}
-          {imovel.TelefoneProprietario && (
+          {imovel.proprietarios?.[0]?.telefone && (
             <Button asChild variant="outline">
-              <a href={`tel:${imovel.TelefoneProprietario}`}><Phone className="w-4 h-4 mr-2" />Ligar</a>
+              <a href={`tel:${imovel.proprietarios[0].telefone}`}><Phone className="w-4 h-4 mr-2" />Ligar</a>
             </Button>
           )}
           <Button onClick={onImport} disabled={importing}>{importing ? 'Importando…' : 'Importar para o sistema'}</Button>
