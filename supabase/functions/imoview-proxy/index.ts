@@ -36,16 +36,39 @@ async function runAction(action: string, params: Record<string, any>, chave: str
 
   switch (action) {
     case 'listar_imoveis': {
-      const body: Record<string, any> = {
+      const PAGE_SIZE = 20;
+      const baseBody: Record<string, any> = {
         finalidade: params.finalidade ?? 2,
-        numeroPagina: params.numeroPagina ?? 1,
-        numeroRegistros: Math.min(params.numeroRegistros ?? 20, 20),
         exibircaptadores: true,
         exibiranexos: false,
       };
       const opt = ['destinacao','codigoTipo','codigocidade','codigosbairros','valorde','valorate','numeroquartos','numerovagas','areaprincipalde','ordenacao'];
-      for (const k of opt) if (params[k] !== undefined && params[k] !== null && params[k] !== '') body[k] = params[k];
-      return await restPost('/Imovel/RetornarImoveisDisponiveis', body, headers);
+      for (const k of opt) if (params[k] !== undefined && params[k] !== null && params[k] !== '') baseBody[k] = params[k];
+
+      // PASSO 1: primeira página para descobrir o total
+      const primeira = await restPost('/Imovel/RetornarImoveisDisponiveis',
+        { ...baseBody, numeroPagina: 1, numeroRegistros: PAGE_SIZE }, headers);
+
+      const quantidade: number = Number(primeira?.quantidade ?? primeira?.lista?.length ?? 0);
+      const totalPaginas = Math.max(1, Math.ceil(quantidade / PAGE_SIZE));
+
+      if (totalPaginas <= 1) return primeira;
+
+      // PASSO 2: páginas restantes em paralelo
+      const promises: Promise<any>[] = [];
+      for (let pagina = 2; pagina <= totalPaginas; pagina++) {
+        promises.push(
+          restPost('/Imovel/RetornarImoveisDisponiveis',
+            { ...baseBody, numeroPagina: pagina, numeroRegistros: PAGE_SIZE }, headers)
+            .catch((e) => { console.error('Página', pagina, 'falhou:', e?.message); return { lista: [] }; })
+        );
+      }
+      const demais = await Promise.all(promises);
+      const lista = [
+        ...(primeira?.lista ?? []),
+        ...demais.flatMap((p) => p?.lista ?? []),
+      ];
+      return { ...primeira, quantidade, lista };
     }
     case 'detalhe_imovel':
       return await restGet('/Imovel/App_RetornarDetalhesImovel', params, headers);
