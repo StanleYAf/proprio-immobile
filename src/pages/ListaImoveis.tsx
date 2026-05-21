@@ -65,10 +65,22 @@ const PIE_COLORS = [
   '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4',
 ];
 
-const fmtBRL = (v: number | null | undefined) =>
-  typeof v === 'number'
-    ? v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })
-    : '—';
+function parseValor(valor: any): number | null {
+  if (valor == null || valor === '' || valor === 0 || valor === '0') return null;
+  if (typeof valor === 'number') return isNaN(valor) ? null : valor;
+  if (typeof valor === 'string') {
+    const limpo = valor.replace('R$', '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.').trim();
+    const n = parseFloat(limpo);
+    return isNaN(n) || n === 0 ? null : n;
+  }
+  return null;
+}
+
+const fmtBRL = (v: any): string => {
+  const n = parseValor(v);
+  if (n == null) return 'Consulte-nos';
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+};
 
 const maskCurrency = (v: string) => {
   const digits = v.replace(/\D/g, '');
