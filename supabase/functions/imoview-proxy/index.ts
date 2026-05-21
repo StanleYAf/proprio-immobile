@@ -1,6 +1,12 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { parse as parseXml } from 'https://deno.land/x/xml@2.1.3/mod.ts';
-import { createHash } from 'https://deno.land/std/hash/mod.ts';
+
+async function md5Hash(text: string): Promise<string> {
+  const data = new TextEncoder().encode(text);
+  const hashBuffer = await crypto.subtle.digest('MD5', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 const REST_BASE = 'https://api.imoview.com.br';
 const LEGACY_BASE = 'https://ws.imoview.com.br/Servicos.asmx';
