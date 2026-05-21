@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import {
   ChevronLeft, ChevronRight, Plus, Filter, ImageOff, BedDouble,
   Car, Ruler, User as UserIcon, Phone, X, ChevronDown, ChevronUp,
+  ExternalLink, AlertTriangle, Download, MessageCircle, Building2,
 } from 'lucide-react';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RTooltip,
@@ -18,8 +20,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { useImoviewImoveis } from '@/hooks/useImoviewApi';
+
+type Origem = 'local' | 'imoview';
 
 type Imovel = {
   id: string;
@@ -38,6 +44,8 @@ type Imovel = {
   telefone_proprietario: string | null;
   corretor_email: string | null;
   fotos: string[] | null;
+  origem: Origem;
+  _raw?: any;
 };
 
 const TIPO_OPTIONS = [
@@ -88,12 +96,47 @@ interface Filters {
   quartosMin: string;
   vagasMin: string;
   corretor: string;
+  origem: 'todos' | Origem;
 }
 
 const EMPTY_FILTERS: Filters = {
   tipos: [], finalidade: 'todos', status: 'todos', bairro: '', cidade: '',
   precoMin: '', precoMax: '', quartosMin: '0', vagasMin: '0', corretor: 'todos',
+  origem: 'todos',
 };
+
+function extractFotos(raw: any): string[] {
+  const fotos = raw?.fotos;
+  if (Array.isArray(fotos)) {
+    const arr = fotos.map((f: any) => (typeof f === 'string' ? f : f?.url || f?.URL || f?.Url)).filter(Boolean);
+    if (arr.length) return arr;
+  }
+  if (raw?.urlfotoprincipal) return [raw.urlfotoprincipal];
+  return [];
+}
+
+function mapImoviewToImovel(raw: any): Imovel {
+  return {
+    id: `imv-${raw.codigo ?? Math.random().toString(36).slice(2)}`,
+    codigo: raw.codigo != null ? String(raw.codigo) : null,
+    tipo: raw.tipo ?? null,
+    finalidade: raw.finalidade ?? null,
+    status: (raw.situacao ?? 'ativo').toString().toLowerCase(),
+    valor: typeof raw.valor === 'number' ? raw.valor : (raw.valor ? Number(raw.valor) : null),
+    bairro: raw.bairro ?? null,
+    cidade: raw.cidade ?? null,
+    estado: raw.estado ?? null,
+    area_interna: raw.areainterna ?? raw.areaprincipal ?? null,
+    quartos: raw.numeroquartos ?? null,
+    vagas: raw.numerovagas ?? null,
+    nome_proprietario: raw.proprietarios?.[0]?.nome ?? null,
+    telefone_proprietario: raw.proprietarios?.[0]?.telefone ?? null,
+    corretor_email: null,
+    fotos: extractFotos(raw),
+    origem: 'imoview',
+    _raw: raw,
+  };
+}
 
 function PhotoCarousel({ fotos }: { fotos: string[] }) {
   const [idx, setIdx] = useState(0);
@@ -111,20 +154,12 @@ function PhotoCarousel({ fotos }: { fotos: string[] }) {
       <img src={fotos[idx]} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
       {fotos.length > 1 && (
         <>
-          <button
-            type="button" onClick={prev}
+          <button type="button" onClick={prev}
             className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background rounded-full p-1.5 shadow opacity-0 group-hover:opacity-100 transition-opacity"
-            aria-label="Foto anterior"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            type="button" onClick={next}
+            aria-label="Foto anterior"><ChevronLeft className="w-4 h-4" /></button>
+          <button type="button" onClick={next}
             className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background rounded-full p-1.5 shadow opacity-0 group-hover:opacity-100 transition-opacity"
-            aria-label="Próxima foto"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+            aria-label="Próxima foto"><ChevronRight className="w-4 h-4" /></button>
           <div className="absolute bottom-2 right-2 bg-background/80 rounded-full px-2 py-0.5 text-[10px] font-medium">
             {idx + 1}/{fotos.length}
           </div>
@@ -143,8 +178,11 @@ export default function ListaImoveis() {
   const [applied, setApplied] = useState<Filters>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectedImoview, setSelectedImoview] = useState<any | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importedKeys, setImportedKeys] = useState<Set<string>>(new Set());
 
-  const { data: imoveis = [], isLoading } = useQuery({
+  const { data: locais = [], isLoading: loadingLocal, refetch: refetchLocal } = useQuery({
     queryKey: ['imoveis'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -152,9 +190,29 @@ export default function ListaImoveis() {
         .select('id, codigo, tipo, finalidade, status, valor, bairro, cidade, estado, area_interna, quartos, vagas, nome_proprietario, telefone_proprietario, corretor_email, fotos')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Imovel[];
+      return (data ?? []).map((r: any) => ({ ...r, origem: 'local' as Origem })) as Imovel[];
     },
   });
+
+  const finalidadeImoview = applied.finalidade === 'Aluguel' ? 1 : 2;
+  const { data: imoviewData, isError: imoviewError, isLoading: loadingImoview } = useImoviewImoveis({
+    numeroPagina: 1,
+    numeroRegistros: 20,
+    finalidade: String(finalidadeImoview),
+  });
+
+  const imoveisImoview: Imovel[] = useMemo(() => {
+    const lista: any[] = (imoviewData as any)?.lista || [];
+    return lista.map(mapImoviewToImovel);
+  }, [imoviewData]);
+
+  const isLoading = loadingLocal || loadingImoview;
+
+  const imoveis: Imovel[] = useMemo(() => {
+    // Filter out imoview items already imported in this session
+    const filteredImoview = imoveisImoview.filter((i) => !importedKeys.has(i.codigo ?? ''));
+    return [...locais, ...filteredImoview];
+  }, [locais, imoveisImoview, importedKeys]);
 
   const corretorOptions = useMemo(() => {
     const set = new Set<string>();
@@ -169,6 +227,7 @@ export default function ListaImoveis() {
     const qMin = parseInt(f.quartosMin, 10) || 0;
     const vMin = parseInt(f.vagasMin, 10) || 0;
     return imoveis.filter((i) => {
+      if (f.origem !== 'todos' && i.origem !== f.origem) return false;
       if (f.tipos.length && !f.tipos.includes(i.tipo ?? '')) return false;
       if (f.finalidade !== 'todos' && i.finalidade !== f.finalidade) return false;
       if (f.status !== 'todos' && i.status !== f.status) return false;
@@ -226,8 +285,60 @@ export default function ListaImoveis() {
     }));
   };
 
+  async function importarImoview(raw: any) {
+    try {
+      setImporting(true);
+      const fotos = extractFotos(raw);
+      const codigo = `IMV-${raw.codigo || Date.now()}`;
+      const payload: any = {
+        codigo,
+        tipo: raw.tipo || null,
+        finalidade: raw.finalidade || null,
+        status: (raw.situacao || 'ativo').toString().toLowerCase(),
+        valor: raw.valor || null,
+        condominio: raw.valorcondominio || null,
+        iptu: raw.valoriptu || null,
+        endereco: raw.endereco || null,
+        numero: raw.numero || null,
+        complemento: raw.complemento || null,
+        bairro: raw.bairro || null,
+        cidade: raw.cidade || null,
+        estado: raw.estado || null,
+        area_interna: raw.areainterna || raw.areaprincipal || null,
+        area_lote: raw.arealote || null,
+        quartos: raw.numeroquartos || null,
+        suites: raw.numerosuites || null,
+        banheiros: raw.numerobanhos || null,
+        vagas: raw.numerovagas || null,
+        descricao: raw.descricao || null,
+        nome_proprietario: raw.proprietarios?.[0]?.nome || null,
+        telefone_proprietario: raw.proprietarios?.[0]?.telefone || null,
+        fotos,
+        corretor_email: user?.email || null,
+      };
+      const { error: insErr } = await supabase.from('imoveis').insert(payload);
+      if (insErr) throw insErr;
+      setImportedKeys((s) => new Set(s).add(String(raw.codigo ?? '')));
+      toast.success(`Imóvel importado! Código: ${codigo}`);
+      setSelectedImoview(null);
+      refetchLocal();
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao importar imóvel');
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <AppLayout title="Imóveis">
+      {/* Imoview error banner */}
+      {imoviewError && !loadingImoview && (
+        <div className="mb-3 rounded-xl border border-yellow-500/40 bg-yellow-500/10 text-yellow-900 dark:text-yellow-200 px-3 py-2 text-xs flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>Não foi possível carregar imóveis do Imoview. Exibindo apenas imóveis locais.</span>
+        </div>
+      )}
+
       {/* Top action */}
       <div className="flex items-center justify-between mb-4 gap-2">
         <button
@@ -276,6 +387,17 @@ export default function ListaImoveis() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Origem</Label>
+              <Select value={filters.origem} onValueChange={(v) => setFilters((p) => ({ ...p, origem: v as Filters['origem'] }))}>
+                <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                <SelectContent className="z-[9999]">
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="local">Apenas locais</SelectItem>
+                  <SelectItem value="imoview">Apenas Imoview</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <Label className="text-xs">Finalidade</Label>
               <Select value={filters.finalidade} onValueChange={(v) => setFilters((p) => ({ ...p, finalidade: v }))}>
@@ -436,6 +558,7 @@ export default function ListaImoveis() {
             {pageItems.map((i, idx) => {
               const statusKey = (i.status ?? 'ativo').toLowerCase();
               const statusClass = STATUS_STYLES[statusKey] ?? 'bg-muted text-muted-foreground';
+              const isImoview = i.origem === 'imoview';
               return (
                 <motion.div
                   key={i.id}
@@ -446,7 +569,20 @@ export default function ListaImoveis() {
                 >
                   <div className="relative">
                     <PhotoCarousel fotos={i.fotos ?? []} />
-                    <Badge className={`absolute top-2 left-2 ${statusClass} border-none capitalize`}>
+                    {/* Origem badge — top-left */}
+                    <Badge
+                      className={`absolute top-2 left-2 border-none ${
+                        isImoview
+                          ? 'bg-blue-600 text-white hover:bg-blue-600'
+                          : 'bg-muted text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {isImoview ? (
+                        <><ExternalLink className="w-3 h-3 mr-1" /> Imoview</>
+                      ) : 'Local'}
+                    </Badge>
+                    {/* Status badge — top-right */}
+                    <Badge className={`absolute top-2 right-2 ${statusClass} border-none capitalize`}>
                       {statusKey}
                     </Badge>
                   </div>
@@ -480,13 +616,33 @@ export default function ListaImoveis() {
                     {i.corretor_email && (
                       <p className="text-[11px] text-muted-foreground truncate">Corretor: {i.corretor_email}</p>
                     )}
-                    <Button
-                      onClick={() => navigate(`/imoveis/${i.id}`)}
-                      variant="outline"
-                      className="w-full mt-1 h-9"
-                    >
-                      Ver detalhes
-                    </Button>
+                    {isImoview ? (
+                      <div className="flex gap-2 mt-1">
+                        <Button
+                          onClick={() => setSelectedImoview(i._raw)}
+                          variant="outline"
+                          className="flex-1 h-9"
+                        >
+                          Ver detalhes
+                        </Button>
+                        <Button
+                          onClick={() => importarImoview(i._raw)}
+                          disabled={importing}
+                          className="flex-1 h-9"
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          Importar
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={() => navigate(`/imoveis/${i.id}`)}
+                        variant="outline"
+                        className="w-full mt-1 h-9"
+                      >
+                        Ver detalhes
+                      </Button>
+                    )}
                   </div>
                 </motion.div>
               );
@@ -509,6 +665,106 @@ export default function ListaImoveis() {
           )}
         </>
       )}
+
+      {/* Imoview detail Sheet */}
+      <Sheet open={!!selectedImoview} onOpenChange={(o) => !o && setSelectedImoview(null)}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+          {selectedImoview && (
+            <ImoviewDetailSheet
+              imovel={selectedImoview}
+              onImport={() => importarImoview(selectedImoview)}
+              importing={importing}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </AppLayout>
+  );
+}
+
+function ImoviewDetailSheet({ imovel, onImport, importing }: { imovel: any; onImport: () => void; importing: boolean }) {
+  const fotos = extractFotos(imovel);
+  const [main, setMain] = useState(0);
+  const tel = String(imovel.proprietarios?.[0]?.telefone || '').replace(/\D/g, '');
+  const wa = tel ? `https://wa.me/55${tel}` : null;
+
+  const sections: Array<{ title: string; items: Array<[string, any]> }> = [
+    { title: 'Identificação', items: [['Código', imovel.codigo], ['Tipo', imovel.tipo], ['Finalidade', imovel.finalidade], ['Situação', imovel.situacao]] },
+    { title: 'Valores', items: [['Valor', fmtBRL(imovel.valor)], ['Condomínio', fmtBRL(imovel.valorcondominio)], ['IPTU', fmtBRL(imovel.valoriptu)]] },
+    { title: 'Endereço', items: [['Logradouro', imovel.endereco], ['Número', imovel.numero], ['Complemento', imovel.complemento], ['Bairro', imovel.bairro], ['Cidade', imovel.cidade], ['Estado', imovel.estado], ['CEP', imovel.cep]] },
+    { title: 'Características', items: [
+      ['Área Principal', imovel.areaprincipal && `${imovel.areaprincipal}m²`],
+      ['Área Interna', imovel.areainterna && `${imovel.areainterna}m²`],
+      ['Área Externa', imovel.areaexterna && `${imovel.areaexterna}m²`],
+      ['Área Lote', imovel.arealote && `${imovel.arealote}m²`],
+      ['Quartos', imovel.numeroquartos], ['Suítes', imovel.numerosuites], ['Banheiros', imovel.numerobanhos], ['Vagas', imovel.numerovagas], ['Andar', imovel.numeroandar],
+    ] },
+    { title: 'Proprietário', items: [['Nome', imovel.proprietarios?.[0]?.nome], ['Telefone', imovel.proprietarios?.[0]?.telefone]] },
+    { title: 'Captador', items: [['Nome', imovel.captadores?.[0]?.nome], ['Email', imovel.captadores?.[0]?.email]] },
+  ];
+
+  return (
+    <>
+      <SheetHeader>
+        <SheetTitle>{imovel.tipo || 'Imóvel'} · #{imovel.codigo}</SheetTitle>
+      </SheetHeader>
+      <div className="mt-4 space-y-4">
+        {fotos.length > 0 ? (
+          <div>
+            <div className="aspect-video w-full bg-muted rounded-xl overflow-hidden">
+              <img src={fotos[main]} alt="" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex gap-2 mt-2 overflow-x-auto">
+              {fotos.map((f, i) => (
+                <button key={i} onClick={() => setMain(i)}
+                  className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 ${i === main ? 'border-primary' : 'border-transparent'}`}>
+                  <img src={f} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="aspect-video bg-muted rounded-xl flex items-center justify-center"><Building2 className="w-12 h-12 text-muted-foreground" /></div>
+        )}
+
+        {sections.map((s) => (
+          <div key={s.title}>
+            <h4 className="text-sm font-semibold mb-1">{s.title}</h4>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+              {s.items.filter(([, v]) => v != null && v !== '' && v !== '—').map(([k, v]) => (
+                <div key={k} className="flex justify-between border-b border-border/40 py-1">
+                  <span className="text-muted-foreground text-xs">{k}</span>
+                  <span className="text-right text-xs truncate ml-2">{String(v)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {imovel.descricao && (
+          <div>
+            <h4 className="text-sm font-semibold mb-1">Descrição</h4>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{imovel.descricao}</p>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2 pt-2 border-t">
+          {wa && (
+            <Button asChild variant="outline">
+              <a href={wa} target="_blank" rel="noreferrer"><MessageCircle className="w-4 h-4 mr-2" />WhatsApp do proprietário</a>
+            </Button>
+          )}
+          {imovel.proprietarios?.[0]?.telefone && (
+            <Button asChild variant="outline">
+              <a href={`tel:${imovel.proprietarios[0].telefone}`}><Phone className="w-4 h-4 mr-2" />Ligar</a>
+            </Button>
+          )}
+          <Button onClick={onImport} disabled={importing}>
+            <Download className="w-4 h-4 mr-2" />
+            {importing ? 'Importando…' : 'Importar para o sistema'}
+          </Button>
+        </div>
+      </div>
+    </>
   );
 }
