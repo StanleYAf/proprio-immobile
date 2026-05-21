@@ -50,6 +50,19 @@ async function restGet(path: string, params: Record<string, any>, headers: Recor
   return data;
 }
 
+async function restPost(path: string, body: Record<string, any>, headers: Record<string, string>) {
+  const res = await fetch(`${REST_BASE}${path}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body || {}),
+  });
+  const text = await res.text();
+  let data: any;
+  try { data = JSON.parse(text); } catch { data = text; }
+  if (!res.ok) throw new Error(`REST_${res.status}: ${typeof data === 'string' ? data.slice(0, 200) : JSON.stringify(data).slice(0, 200)}`);
+  return data;
+}
+
 async function legacyGet(path: string, params: Record<string, any>) {
   const url = new URL(`${LEGACY_BASE}${path}`);
   Object.entries(params || {}).forEach(([k, v]) => {
