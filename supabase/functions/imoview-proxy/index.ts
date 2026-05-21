@@ -28,7 +28,7 @@ function md5Hash(text: string): string {
     x[len >> 5] |= 0x80 << (len % 32);
     x[(((len + 64) >>> 9) << 4) + 14] = len;
     let a = 1732584193, b = -271733879, c = -1732584194, d = 271733878;
-    for (let i = 1; i < x.length; i += 16) {
+    for (let i = 0; i < x.length; i += 16) {
       const olda = a, oldb = b, oldc = c, oldd = d;
       a = md5ff(a, b, c, d, x[i], 7, -680876936);
       d = md5ff(d, a, b, c, x[i + 1], 12, -389564586);
