@@ -16,7 +16,7 @@ let cachedToken: { codigo: string; expiresAt: number } | null = null;
 async function getCodigoAcesso(chave: string, email: string, senha: string): Promise<string> {
   if (cachedToken && cachedToken.expiresAt > Date.now()) return cachedToken.codigo;
 
-  const senhaMD5 = createHash('md5').update(senha).toString('hex');
+  const senhaMD5 = await md5Hash(senha);
   const url = new URL(`${REST_BASE}/Usuario/App_ValidarAcesso`);
   url.searchParams.set('email', email);
   url.searchParams.set('senha', senhaMD5);
