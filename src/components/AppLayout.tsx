@@ -1,6 +1,6 @@
 import { useAuth } from '@/lib/auth';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Home, ArrowLeft, Building2, ClipboardList, PlusCircle, UserPlus, BarChart3, Settings } from 'lucide-react';
+import { LogOut, Home, ArrowLeft, Building2, ClipboardList, PlusCircle, UserPlus, BarChart3, Settings, Link2 } from 'lucide-react';
 import { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
