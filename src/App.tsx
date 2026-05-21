@@ -63,7 +63,6 @@ const AppRoutes = () => (
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/imovel/cadastrar" element={<ProtectedRoute><RegisterProperty /></ProtectedRoute>} />
     <Route path="/imoveis" element={<ProtectedRoute><ListaImoveis /></ProtectedRoute>} />
-     <Route path="/imoveis" element={<ProtectedRoute><ListaImoveis /></ProtectedRoute>} />
     <Route path="/imoveis/imoview" element={<ProtectedRoute><ImoveisImoview /></ProtectedRoute>} />
     <Route path="/imoveis/:id" element={<ProtectedRoute><DetalhesImovel /></ProtectedRoute>} />
     <Route path="/atendimentos" element={<ProtectedRoute><ListaAtendimentos /></ProtectedRoute>} />
