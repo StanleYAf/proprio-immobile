@@ -89,17 +89,13 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const etapaStyleFor = (etapa?: string | null): string => {
-  const base = 'bg-slate-500/20 text-slate-300 border-slate-500/30';
-  if (!etapa) return base;
+  if (!etapa) return 'bg-gray-100 text-gray-600 border-gray-200';
   const s = String(etapa).toLowerCase();
-  if (s.includes('descart') || s.includes('perdid')) return 'bg-red-500/20 text-red-300 border-red-500/30';
-  if (s.includes('fecha')) return 'bg-green-500/20 text-green-300 border-green-500/30';
-  if (s.includes('negocia')) return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
-  if (s.includes('visita')) return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
-  if (s.includes('qualific')) return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
-  if (s.includes('contato') || s.includes('novo')) return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
-  return base;
+  if (s.includes('inbound')) return 'bg-blue-100 text-blue-700 border-blue-200';
+  if (s.includes('outbound')) return 'bg-purple-100 text-purple-700 border-purple-200';
+  return 'bg-gray-100 text-gray-600 border-gray-200';
 };
+
 
 const styleFor = (map: Record<string, string>, key?: string | null, fallback = '') => {
   if (!key) return fallback;
@@ -221,12 +217,13 @@ export default function ListaAtendimentos() {
 
   const EtapaBadge = ({ etapa }: { etapa: string | null }) => (
     <span className={cn(
-      'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize',
+      'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap',
       etapaStyleFor(etapa)
     )}>
       {etapa ?? '—'}
     </span>
   );
+
 
   return (
     <AppLayout title="Atendimentos">
@@ -427,10 +424,11 @@ export default function ListaAtendimentos() {
                     <TableCell className="text-xs text-muted-foreground truncate max-w-[160px]">{a.corretor ?? '—'}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{fmtDate(a.criadoEm)}</TableCell>
                     <TableCell>
-                      <Button size="sm" variant="outline" onClick={() => navigate(`/atendimentos/${a.codigo}`)}>
+                      <Button size="sm" variant="outline" onClick={() => navigate(`/atendimentos/${a.codigo}`, { state: { atendimento: a.raw } })}>
                         Abrir
                       </Button>
                     </TableCell>
+
                   </motion.tr>
                 ))}
               </TableBody>
@@ -462,9 +460,10 @@ export default function ListaAtendimentos() {
                 <p className="text-xs text-muted-foreground">{a.finalidade ?? '—'}{a.tipo ? ` • ${a.tipo}` : ''}</p>
                 <p className="text-[11px] text-muted-foreground">Corretor: {a.corretor ?? '—'}</p>
                 <p className="text-[11px] text-muted-foreground">{fmtDate(a.criadoEm)}</p>
-                <Button variant="outline" className="w-full h-9 mt-1" onClick={() => navigate(`/atendimentos/${a.codigo}`)}>
+                <Button variant="outline" className="w-full h-9 mt-1" onClick={() => navigate(`/atendimentos/${a.codigo}`, { state: { atendimento: a.raw } })}>
                   Abrir
                 </Button>
+
               </motion.div>
             ))}
           </div>

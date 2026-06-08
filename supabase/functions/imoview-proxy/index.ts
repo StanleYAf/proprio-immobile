@@ -159,32 +159,10 @@ async function runAction(action: string, params: Record<string, any>, chave: str
       return { ...primeira, quantidade, lista };
     }
 
-    case 'detalhe_atendimento': {
-      const id = params.codigoAtendimento ?? params.codigoatendimento ?? params.codigo;
-      const tentativas = [
-        `${REST_BASE}/Atendimento/App_DetalhesAtendimentos?codigoAtendimento=${id}`,
-        `${REST_BASE}/Atendimento/App_DetalhesAtendimentos?codigoatendimento=${id}`,
-        `${REST_BASE}/Atendimento/App_DetalhesAtendimentos?codigo=${id}`,
-        `${REST_BASE}/Atendimento/RetornarAtendimentos?codigoAtendimento=${id}`,
-        `${REST_BASE}/Atendimento/App_RetornarAtendimentos?codigoAtendimento=${id}`,
-      ];
-      let lastStatus = 0;
-      let lastBody = '';
-      for (const url of tentativas) {
-        const res = await fetch(url, { method: 'GET', headers });
-        const text = await res.text();
-        if (res.ok) {
-          let data: any;
-          try { data = JSON.parse(text); } catch { data = text; }
-          console.log(`[imoview-proxy] detalhe_atendimento OK em ${url}`);
-          return { ...(typeof data === 'object' ? data : { data }), endpointUsado: url };
-        }
-        lastStatus = res.status;
-        lastBody = text.slice(0, 200);
-        console.warn(`[imoview-proxy] detalhe_atendimento ${res.status} em ${url}`);
-      }
-      throw new Error(`Nenhum endpoint funcionou para detalhe (último ${lastStatus}: ${lastBody})`);
-    }
+    // detalhe_atendimento removido — o endpoint individual não existe na API Imoview.
+    // Os detalhes vêm embutidos em cada item de listar_atendimentos.
+
+
 
     case 'imoveis_encontrados':
       return await restGet('/Atendimento/App_RetornarImoveisEncontrados', params, headers);

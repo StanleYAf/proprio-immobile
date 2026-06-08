@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Loader2, AlertTriangle, Phone, Mail, ExternalLink,
+  ArrowLeft, Loader2, Phone, Mail, ExternalLink,
   Plus, ImageOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -11,14 +11,12 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  useImoviewAtendimentoDetalhe,
   useImoviewImoveisEncontrados,
   callImoview,
 } from '@/hooks/useImoviewApi';
@@ -55,23 +53,6 @@ const isYes = (v: any) => {
   return false;
 };
 const simNao = (v: any) => (v == null || v === '' ? '—' : (isYes(v) ? 'Sim' : 'Não'));
-
-const ErrorBanner = ({ msg, onRetry }: { msg: string; onRetry: () => void }) => (
-  <div className="rounded-2xl border border-yellow-500/40 bg-yellow-500/10 p-4 flex items-center gap-3">
-    <AlertTriangle className="w-5 h-5 text-yellow-400" />
-    <div className="flex-1">
-      <p className="text-sm font-medium text-yellow-100">Não foi possível carregar</p>
-      <p className="text-xs text-yellow-200/70 mt-0.5">{msg}</p>
-    </div>
-    <Button size="sm" variant="outline" onClick={onRetry}>Tentar novamente</Button>
-  </div>
-);
-
-const SkeletonList = () => (
-  <div className="space-y-3">
-    {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
-  </div>
-);
 
 function ImoveisGrid({ items, navigate, emptyMsg }: { items: any[]; navigate: (p: string) => void; emptyMsg: string }) {
   if (!items?.length) {
@@ -144,7 +125,6 @@ const TIPOS_INTERACAO = [
   { value: 'Visita', label: 'Visita' },
 ];
 
-// Detecta URLs e quebras de linha
 function renderTexto(texto: string) {
   if (!texto) return null;
   const linhas = texto.split(/\r?\n/);
@@ -178,18 +158,32 @@ function fmtDataHora(d: any) {
 
 export default function DetalhesAtendimento() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams<{ id: string }>();
   const codigoAtendimento = id;
   const qc = useQueryClient();
 
-  const detalhe = useImoviewAtendimentoDetalhe(codigoAtendimento);
-  const encontrados = useImoviewImoveisEncontrados(codigoAtendimento);
+  // 1) Tentar pegar do state da navegação
+  const fromState: any = (location.state as any)?.atendimento ?? null;
 
-  // A API retorna { atendimento: {...} } ou já o objeto direto.
-  const root: any = useMemo(() => {
-    const d: any = detalhe.data || {};
-    return d.atendimento ?? d;
-  }, [detalhe.data]);
+  // 2) Caso contrário, procurar nas listas em cache do React Query
+  const fromCache: any = useMemo(() => {
+    if (fromState) return null;
+    const queries = qc.getQueriesData({ queryKey: ['imoview', 'atendimentos'] });
+    for (const [, data] of queries) {
+      const lista: any[] = (data as any)?.lista ?? (Array.isArray(data) ? (data as any) : []);
+      const match = lista.find((a: any) =>
+        String(a?.codigo ?? a?.codigoAtendimento ?? a?.id) === String(codigoAtendimento)
+      );
+      if (match) return match;
+    }
+    return null;
+  }, [fromState, qc, codigoAtendimento]);
+
+  const root: any = fromState ?? fromCache;
+  const semDados = !root;
+
+  const encontrados = useImoviewImoveisEncontrados(semDados ? null : codigoAtendimento);
 
   const lead: any = root?.lead ?? {};
   const perfil: any = root?.perfil ?? {};
@@ -201,7 +195,6 @@ export default function DetalhesAtendimento() {
   const imoveisNegocio: any[] = root?.imoveisnegocio ?? [];
   const encontradosList: any[] = (encontrados.data as any)?.lista ?? (Array.isArray(encontrados.data) ? encontrados.data : []);
 
-  // Nova interação
   const [novoTipo, setNovoTipo] = useState('Nota');
   const [novoConteudo, setNovoConteudo] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -218,8 +211,7 @@ export default function DetalhesAtendimento() {
       });
       toast.success('Interação registrada');
       setNovoConteudo('');
-      qc.invalidateQueries({ queryKey: ['imoview', 'atendimento', codigoAtendimento] });
-      detalhe.refetch();
+      qc.invalidateQueries({ queryKey: ['imoview', 'atendimentos'] });
     } catch (e: any) {
       toast.error(e?.message || 'Erro ao registrar interação');
     } finally {
@@ -227,7 +219,6 @@ export default function DetalhesAtendimento() {
     }
   };
 
-  // Perfil de interesse — verificar se algo está preenchido
   const perfilPreenchido = useMemo(() => {
     const arrs = [perfil?.tiposimoveis, perfil?.cidades, perfil?.bairros].some(
       (a) => Array.isArray(a) && a.length > 0
@@ -237,6 +228,26 @@ export default function DetalhesAtendimento() {
     return arrs || nums;
   }, [perfil]);
 
+  if (semDados) {
+    return (
+      <AppLayout title={`Atendimento ${codigoAtendimento ?? ''}`}>
+        <div className="mb-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/atendimentos')}>
+            <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
+          </Button>
+        </div>
+        <div className="rounded-2xl border border-dashed border-border p-10 text-center space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Não foi possível abrir este atendimento diretamente. Abra a partir da listagem para ver os detalhes.
+          </p>
+          <Button onClick={() => navigate('/atendimentos')}>
+            Voltar para listagem
+          </Button>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout title={`Atendimento ${codigoAtendimento ?? ''}`}>
       <div className="mb-4">
@@ -245,39 +256,33 @@ export default function DetalhesAtendimento() {
         </Button>
       </div>
 
-      {detalhe.isLoading ? (
-        <Skeleton className="h-32 w-full mb-4" />
-      ) : detalhe.error ? (
-        <ErrorBanner msg={(detalhe.error as any)?.message ?? 'Erro'} onRetry={() => detalhe.refetch()} />
-      ) : (
-        <div className="rounded-2xl border border-border bg-card p-4 mb-4">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <h2 className="text-lg font-semibold">{lead?.nome ?? '—'}</h2>
-              <p className="text-xs text-muted-foreground">Código #{codigoAtendimento}</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {root?.situacao && <Badge>{root.situacao}</Badge>}
-              {root?.funil && <Badge variant="outline">{root.funil}</Badge>}
-            </div>
+      <div className="rounded-2xl border border-border bg-card p-4 mb-4">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="text-lg font-semibold">{lead?.nome ?? '—'}</h2>
+            <p className="text-xs text-muted-foreground">Código #{codigoAtendimento}</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 text-sm">
-            {lead?.telefone1 && (
-              <a href={`tel:${String(lead.telefone1).replace(/\D/g, '')}`} className="flex items-center gap-2 hover:text-accent">
-                <Phone className="w-4 h-4 text-muted-foreground" /> {lead.telefone1}
-              </a>
-            )}
-            {lead?.email && (
-              <a href={`mailto:${lead.email}`} className="flex items-center gap-2 hover:text-accent truncate">
-                <Mail className="w-4 h-4 text-muted-foreground" /> {lead.email}
-              </a>
-            )}
-            {root?.corretor && (
-              <span className="text-muted-foreground">Corretor: <span className="text-foreground">{root.corretor}</span></span>
-            )}
+          <div className="flex flex-wrap gap-2">
+            {root?.situacao && <Badge>{root.situacao}</Badge>}
+            {root?.funil && <Badge variant="outline">{root.funil}</Badge>}
           </div>
         </div>
-      )}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 text-sm">
+          {lead?.telefone1 && (
+            <a href={`tel:${String(lead.telefone1).replace(/\D/g, '')}`} className="flex items-center gap-2 hover:text-accent">
+              <Phone className="w-4 h-4 text-muted-foreground" /> {lead.telefone1}
+            </a>
+          )}
+          {lead?.email && (
+            <a href={`mailto:${lead.email}`} className="flex items-center gap-2 hover:text-accent truncate">
+              <Mail className="w-4 h-4 text-muted-foreground" /> {lead.email}
+            </a>
+          )}
+          {root?.corretor && (
+            <span className="text-muted-foreground">Corretor: <span className="text-foreground">{root.corretor}</span></span>
+          )}
+        </div>
+      </div>
 
       <Tabs defaultValue="perfil" className="w-full">
         <TabsList className="grid grid-cols-5 w-full">
@@ -289,82 +294,71 @@ export default function DetalhesAtendimento() {
         </TabsList>
 
         <TabsContent value="perfil" className="mt-4 space-y-3">
-          {detalhe.isLoading ? <SkeletonList /> : detalhe.error ? (
-            <ErrorBanner msg={(detalhe.error as any)?.message ?? 'Erro'} onRetry={() => detalhe.refetch()} />
-          ) : (
-            <>
-              {/* Dados do Lead */}
-              <div className="rounded-2xl border border-border bg-card p-4">
-                <h3 className="text-sm font-semibold mb-3">Dados do Lead</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Field label="Nome" value={lead?.nome} />
-                  <Field label="Telefone principal" value={lead?.telefone1} />
-                  {lead?.telefone2 && <Field label="Telefone 2" value={lead.telefone2} />}
-                  {lead?.email && <Field label="E-mail" value={lead.email} />}
-                  {lead?.profissao && <Field label="Profissão" value={lead.profissao} />}
-                  {Number(lead?.rendamensal) > 0 && <Field label="Renda mensal" value={fmtBRL(lead.rendamensal)} />}
-                  {Number(lead?.valorfgts) > 0 && <Field label="Valor FGTS" value={fmtBRL(lead.valorfgts)} />}
-                  {Number(lead?.valorentrada) > 0 && <Field label="Valor de entrada" value={fmtBRL(lead.valorentrada)} />}
-                </div>
-              </div>
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <h3 className="text-sm font-semibold mb-3">Dados do Lead</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Nome" value={lead?.nome} />
+              <Field label="Telefone principal" value={lead?.telefone1} />
+              {lead?.telefone2 && <Field label="Telefone 2" value={lead.telefone2} />}
+              {lead?.email && <Field label="E-mail" value={lead.email} />}
+              {lead?.profissao && <Field label="Profissão" value={lead.profissao} />}
+              {Number(lead?.rendamensal) > 0 && <Field label="Renda mensal" value={fmtBRL(lead.rendamensal)} />}
+              {Number(lead?.valorfgts) > 0 && <Field label="Valor FGTS" value={fmtBRL(lead.valorfgts)} />}
+              {Number(lead?.valorentrada) > 0 && <Field label="Valor de entrada" value={fmtBRL(lead.valorentrada)} />}
+            </div>
+          </div>
 
-              {/* Perfil de Interesse */}
-              <div className="rounded-2xl border border-border bg-card p-4">
-                <h3 className="text-sm font-semibold mb-3">Perfil de Interesse</h3>
-                {!perfilPreenchido && !root?.finalidade ? (
-                  <p className="text-sm text-muted-foreground">Perfil de interesse não preenchido.</p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {root?.finalidade && <Field label="Finalidade" value={root.finalidade} />}
-                    {Array.isArray(perfil?.tiposimoveis) && perfil.tiposimoveis.length > 0 && (
-                      <Field label="Tipo de imóvel" value={<Chips items={perfil.tiposimoveis} />} />
-                    )}
-                    {Array.isArray(perfil?.cidades) && perfil.cidades.length > 0 && (
-                      <Field label="Cidades" value={<Chips items={perfil.cidades} />} />
-                    )}
-                    {Array.isArray(perfil?.bairros) && perfil.bairros.length > 0 && (
-                      <Field label="Bairros" value={<Chips items={perfil.bairros} />} />
-                    )}
-                    {(Number(perfil?.valorde) > 0 || Number(perfil?.valorate) > 0) && (
-                      <Field
-                        label="Faixa de valor"
-                        value={`${fmtBRL(perfil?.valorde) ?? 'R$ 0'} — ${fmtBRL(perfil?.valorate) ?? 'R$ 0'}`}
-                      />
-                    )}
-                    {Number(perfil?.numeroquarto) > 0 && <Field label="Quartos" value={perfil.numeroquarto} />}
-                    {Number(perfil?.numerovaga) > 0 && <Field label="Vagas" value={perfil.numerovaga} />}
-                    {perfil?.aceitafinanciamento != null && perfil.aceitafinanciamento !== '' && (
-                      <Field label="Aceita financiamento" value={simNao(perfil.aceitafinanciamento)} />
-                    )}
-                    {perfil?.mobiliado != null && perfil.mobiliado !== '' && (
-                      <Field label="Mobiliado" value={simNao(perfil.mobiliado)} />
-                    )}
-                  </div>
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <h3 className="text-sm font-semibold mb-3">Perfil de Interesse</h3>
+            {!perfilPreenchido && !root?.finalidade ? (
+              <p className="text-sm text-muted-foreground">Perfil de interesse não preenchido.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {root?.finalidade && <Field label="Finalidade" value={root.finalidade} />}
+                {Array.isArray(perfil?.tiposimoveis) && perfil.tiposimoveis.length > 0 && (
+                  <Field label="Tipo de imóvel" value={<Chips items={perfil.tiposimoveis} />} />
+                )}
+                {Array.isArray(perfil?.cidades) && perfil.cidades.length > 0 && (
+                  <Field label="Cidades" value={<Chips items={perfil.cidades} />} />
+                )}
+                {Array.isArray(perfil?.bairros) && perfil.bairros.length > 0 && (
+                  <Field label="Bairros" value={<Chips items={perfil.bairros} />} />
+                )}
+                {(Number(perfil?.valorde) > 0 || Number(perfil?.valorate) > 0) && (
+                  <Field
+                    label="Faixa de valor"
+                    value={`${fmtBRL(perfil?.valorde) ?? 'R$ 0'} — ${fmtBRL(perfil?.valorate) ?? 'R$ 0'}`}
+                  />
+                )}
+                {Number(perfil?.numeroquarto) > 0 && <Field label="Quartos" value={perfil.numeroquarto} />}
+                {Number(perfil?.numerovaga) > 0 && <Field label="Vagas" value={perfil.numerovaga} />}
+                {perfil?.aceitafinanciamento != null && perfil.aceitafinanciamento !== '' && (
+                  <Field label="Aceita financiamento" value={simNao(perfil.aceitafinanciamento)} />
+                )}
+                {perfil?.mobiliado != null && perfil.mobiliado !== '' && (
+                  <Field label="Mobiliado" value={simNao(perfil.mobiliado)} />
                 )}
               </div>
+            )}
+          </div>
 
-              {/* Informações do Atendimento */}
-              <div className="rounded-2xl border border-border bg-card p-4">
-                <h3 className="text-sm font-semibold mb-3">Informações do Atendimento</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Field label="Corretor" value={root?.corretor} />
-                  <Field label="Funil" value={root?.funil} />
-                  <Field label="Mídia de origem" value={root?.midia} />
-                  <Field label="Tipo" value={root?.tipo} />
-                  {root?.campanha && <Field label="Campanha" value={root.campanha} />}
-                  <Field label="Termômetro" value={root?.termometro} />
-                  <Field label="Entrada do lead" value={fmtDataHora(root?.datahoraentradalead)} />
-                  <Field label="Última interação" value={fmtDataHora(root?.datahoraultimainteracao)} />
-                </div>
-              </div>
-            </>
-          )}
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <h3 className="text-sm font-semibold mb-3">Informações do Atendimento</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Corretor" value={root?.corretor} />
+              <Field label="Funil" value={root?.funil} />
+              <Field label="Mídia de origem" value={root?.midia} />
+              <Field label="Tipo" value={root?.tipo} />
+              {root?.campanha && <Field label="Campanha" value={root.campanha} />}
+              <Field label="Termômetro" value={root?.termometro} />
+              <Field label="Entrada do lead" value={fmtDataHora(root?.datahoraentradalead)} />
+              <Field label="Última interação" value={fmtDataHora(root?.datahoraultimainteracao)} />
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="encontrados" className="mt-4">
-          {encontrados.isLoading ? <SkeletonList /> :
-            encontrados.error ? <ErrorBanner msg={(encontrados.error as any)?.message ?? 'Erro'} onRetry={() => encontrados.refetch()} /> :
-            <ImoveisGrid items={encontradosList} navigate={navigate} emptyMsg="Nenhum imóvel encontrado." />}
+          <ImoveisGrid items={encontradosList} navigate={navigate} emptyMsg="Nenhum imóvel encontrado." />
         </TabsContent>
 
         <TabsContent value="visitas" className="mt-4 space-y-6">
@@ -428,33 +422,32 @@ export default function DetalhesAtendimento() {
           </div>
 
           <div className="space-y-2">
-            {detalhe.isLoading ? <SkeletonList /> :
-              interacoes.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">Nenhuma interação registrada.</p>
-              ) : interacoes.map((it: any, idx: number) => {
-                const data = pick(it, ['datahora', 'data', 'dataInteracao', 'datahoracadastro']);
-                const usuario = pick(it, ['usuario', 'nomeUsuario', 'corretor']);
-                const descricao = pick(it, ['descricao', 'conteudo', 'observacao']) ?? '';
-                return (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: idx * 0.02 }}
-                    className="rounded-xl border border-border bg-card p-3"
-                  >
-                    <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-                      <span className="text-[11px] text-muted-foreground">{fmtDataHora(data)}</span>
-                      {usuario && (
-                        <Badge variant="secondary" className="text-[10px] bg-muted text-muted-foreground border-border">
-                          {usuario}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="text-sm whitespace-pre-wrap break-words">
-                      {renderTexto(String(descricao))}
-                    </div>
-                  </motion.div>
-                );
-              })}
+            {interacoes.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Nenhuma interação registrada.</p>
+            ) : interacoes.map((it: any, idx: number) => {
+              const data = pick(it, ['datahora', 'data', 'dataInteracao', 'datahoracadastro']);
+              const usuario = pick(it, ['usuario', 'nomeUsuario', 'corretor']);
+              const descricao = pick(it, ['descricao', 'conteudo', 'observacao']) ?? '';
+              return (
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: idx * 0.02 }}
+                  className="rounded-xl border border-border bg-card p-3"
+                >
+                  <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                    <span className="text-[11px] text-muted-foreground">{fmtDataHora(data)}</span>
+                    {usuario && (
+                      <Badge variant="secondary" className="text-[10px] bg-muted text-muted-foreground border-border">
+                        {usuario}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="text-sm whitespace-pre-wrap break-words">
+                    {renderTexto(String(descricao))}
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         </TabsContent>
       </Tabs>
