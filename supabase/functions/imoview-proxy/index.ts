@@ -192,31 +192,6 @@ async function runAction(action: string, params: Record<string, any>, chave: str
       return await getAllPages('/Cliente/App_RetornarPessoas', rest, headers, PAGE_SIZE);
     }
 
-    case '_probe': {
-      // Ferramenta de descoberta de endpoints
-      const paths: string[] = params.paths ?? [];
-      const method: string = (params.method ?? 'GET').toUpperCase();
-      const qs: Record<string, any> = params.query ?? { numeroPagina: 1, numeroRegistros: 5 };
-      const results: any[] = [];
-      for (const path of paths) {
-        try {
-          let res: Response;
-          if (method === 'GET') {
-            const url = new URL(`${REST_BASE}${path}`);
-            Object.entries(qs).forEach(([k, v]) => url.searchParams.set(k, String(v)));
-            res = await fetch(url.toString(), { method: 'GET', headers });
-          } else {
-            res = await fetch(`${REST_BASE}${path}`, { method, headers, body: JSON.stringify(qs) });
-          }
-          const text = await res.text();
-          results.push({ path, method, status: res.status, body: text.slice(0, 180) });
-        } catch (e: any) {
-          results.push({ path, method, error: e?.message });
-        }
-      }
-      return results;
-    }
-
     default:
       throw new Error(`UNKNOWN_ACTION: ${action}`);
   }
