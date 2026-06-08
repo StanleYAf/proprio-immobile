@@ -2,10 +2,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useQuery } from '@tanstack/react-query';
 import AppLayout from '@/components/AppLayout';
-import { supabase } from '@/integrations/supabase/client';
 import { Building2, ShieldCheck, ClipboardList, UserPlus, Users, PlusCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { callImoview, useImoviewAtendimentos } from '@/hooks/useImoviewApi';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -13,42 +13,37 @@ export default function Dashboard() {
 
   const isMasterOrAdmin = user?.classificacao === 'master' || user?.isAdmin;
   const canRegisterUsers = isMasterOrAdmin || user?.classificacao === 'stand1';
-  const email = user?.email || '';
 
-  const { data: imoveisAtivos = 0 } = useQuery({
-    queryKey: ['count-imoveis-ativos'],
-    queryFn: async () => {
-      const { count } = await supabase.from('imoveis').select('*', { count: 'exact', head: true }).eq('status', 'ativo');
-      return count || 0;
-    },
+  // Imóveis ativos (Imoview) — só precisamos da quantidade total
+  const { data: imoveisData } = useQuery({
+    queryKey: ['imoview', 'imoveis', 'count'],
+    queryFn: () => callImoview<any>('listar_imoveis', { numeroPagina: 1, numeroRegistros: 1 }),
+    retry: false,
   });
+  const imoveisAtivos = Number(imoveisData?.quantidade ?? imoveisData?.lista?.length ?? 0);
 
-  const { data: atendimentosAbertos = 0 } = useQuery({
-    queryKey: ['count-atendimentos-abertos', email, isMasterOrAdmin],
-    queryFn: async () => {
-      let q = supabase.from('atendimentos').select('*', { count: 'exact', head: true })
-        .not('status', 'in', '(fechado,perdido)');
-      if (!isMasterOrAdmin && email) q = q.eq('corretor_email', email);
-      const { count } = await q;
-      return count || 0;
-    },
-  });
+  // Atendimentos (usa o cache compartilhado com a página /atendimentos)
+  const { data: atendimentosData } = useImoviewAtendimentos({});
+  const atendimentosLista: any[] = (atendimentosData as any)?.lista ?? [];
+  const atendimentosAbertos = atendimentosLista.filter((a) => {
+    const s = String(a?.situacao ?? a?.status ?? '').toLowerCase();
+    return !(s.includes('fechad') || s.includes('finaliz') || s.includes('descart') || s.includes('perdid'));
+  }).length;
 
-  const { data: clientesCount = 0 } = useQuery({
-    queryKey: ['count-clientes', email, isMasterOrAdmin],
-    queryFn: async () => {
-      let q = supabase.from('clientes').select('*', { count: 'exact', head: true });
-      if (!isMasterOrAdmin && email) q = q.eq('corretor_email', email);
-      const { count } = await q;
-      return count || 0;
-    },
-  });
+  // Clientes únicos derivados dos atendimentos
+  const clientesCount = new Set(
+    atendimentosLista
+      .map((a) => a?.lead?.codigo ?? a?.lead?.telefone1 ?? a?.lead?.nome)
+      .filter(Boolean)
+      .map(String)
+  ).size;
 
   const metrics = [
     { label: 'Imóveis ativos', value: imoveisAtivos, icon: Building2, onClick: () => navigate('/imoveis') },
     { label: 'Atendimentos abertos', value: atendimentosAbertos, icon: ClipboardList, onClick: () => navigate('/atendimentos') },
     { label: 'Clientes', value: clientesCount, icon: Users, onClick: () => { toast('Módulo de clientes em breve'); navigate('/atendimentos'); } },
   ];
+
 
   const actions = [
     {
