@@ -424,10 +424,11 @@ export default function ListaAtendimentos() {
                     <TableCell className="text-xs text-muted-foreground truncate max-w-[160px]">{a.corretor ?? '—'}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{fmtDate(a.criadoEm)}</TableCell>
                     <TableCell>
-                      <Button size="sm" variant="outline" onClick={() => navigate(`/atendimentos/${a.codigo}`)}>
+                      <Button size="sm" variant="outline" onClick={() => navigate(`/atendimentos/${a.codigo}`, { state: { atendimento: a.raw } })}>
                         Abrir
                       </Button>
                     </TableCell>
+
                   </motion.tr>
                 ))}
               </TableBody>
