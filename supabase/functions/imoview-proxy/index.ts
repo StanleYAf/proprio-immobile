@@ -15,6 +15,31 @@ async function restGet(path: string, params: Record<string, any>, headers: Recor
   return data;
 }
 
+// GET com fallback entre múltiplos paths (útil quando o nome do endpoint varia)
+async function restGetFallback(paths: string[], params: Record<string, any>, headers: Record<string, string>) {
+  let lastErr = '';
+  let lastUrl = '';
+  for (const path of paths) {
+    const url = new URL(`${REST_BASE}${path}`);
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
+    });
+    lastUrl = url.toString();
+    const res = await fetch(lastUrl, { method: 'GET', headers });
+    const text = await res.text();
+    let data: any;
+    try { data = JSON.parse(text); } catch { data = text; }
+    if (res.ok) {
+      console.log(`[imoview-proxy] OK em ${path}`);
+      return data;
+    }
+    lastErr = `REST_${res.status} em ${lastUrl}: ${typeof data === 'string' ? data.slice(0, 200) : JSON.stringify(data).slice(0, 200)}`;
+    console.warn(`[imoview-proxy] Falhou ${path} -> ${res.status}`);
+    if (res.status !== 404) throw new Error(lastErr);
+  }
+  throw new Error(lastErr || `Nenhum endpoint válido entre: ${paths.join(', ')}`);
+}
+
 async function restPost(path: string, body: Record<string, any>, headers: Record<string, string>) {
   const res = await fetch(`${REST_BASE}${path}`, {
     method: 'POST',
