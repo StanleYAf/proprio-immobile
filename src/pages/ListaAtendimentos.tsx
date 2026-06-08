@@ -220,8 +220,8 @@ export default function ListaAtendimentos() {
 
   const EtapaBadge = ({ etapa }: { etapa: string | null }) => (
     <span className={cn(
-      'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border',
-      styleFor(ETAPA_STYLES, etapa, 'bg-slate-500/20 text-slate-300 border-slate-500/30')
+      'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize',
+      etapaStyleFor(etapa)
     )}>
       {etapa ?? '—'}
     </span>
