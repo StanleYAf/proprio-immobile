@@ -121,23 +121,36 @@ async function runAction(action: string, params: Record<string, any>, chave: str
       return await restGet('/Imovel/App_RetornarDetalhesImovel', params, headers);
 
     case 'listar_atendimentos': {
+      // Endpoint correto: /Atendimento/RetornarAtendimentos (sem App_)
+      // Requer TODOS os parâmetros — numéricos vazios = 0, strings vazias = ""
       const PAGE_SIZE = Math.min(Number(params.numeroRegistros) || 20, 20);
-      const { numeroPagina: _np, numeroRegistros: _nr, ...rest } = params || {};
-      // Descobrir qual endpoint funciona (tenta sem App_ primeiro, depois com App_)
-      const candidatos = [
-        '/Atendimento/RetornarAtendimentos',
-        '/Atendimento/App_RetornarAtendimentos',
-      ];
-      const primeira = await restGetFallback(candidatos,
-        { ...rest, numeroPagina: 1, numeroRegistros: PAGE_SIZE }, headers);
+      const path = '/Atendimento/RetornarAtendimentos';
+      const buildQuery = (pagina: number) => ({
+        numeroPagina: pagina,
+        numeroRegistros: PAGE_SIZE,
+        finalidade: params.finalidade ?? 1,
+        situacao: params.situacao ?? 0,
+        fase: params.fase ?? 0,
+        codigoUnidade: params.codigoUnidade ?? 0,
+        codigoCliente: params.codigoCliente ?? 0,
+        codigoCorretor: params.codigoCorretor ?? 0,
+        codigoMql: params.codigoMql ?? 0,
+        codigoMidia: params.codigoMidia ?? 0,
+        codigoTipo: params.codigoTipo ?? 0,
+        dataInicial: params.dataInicial ?? '',
+        dataFinal: params.dataFinal ?? '',
+        opcaoAtendimento: params.opcaoAtendimento ?? 0,
+        dataHoraInicialUltimaAlteracao: params.dataHoraInicialUltimaAlteracao ?? '',
+        dataHoraFinalUltimaAlteracao: params.dataHoraFinalUltimaAlteracao ?? '',
+      });
+      const primeira = await restGet(path, buildQuery(1), headers);
       const quantidade: number = Number(primeira?.quantidade ?? primeira?.lista?.length ?? 0);
       const totalPaginas = Math.max(1, Math.ceil(quantidade / PAGE_SIZE));
       if (totalPaginas <= 1) return primeira;
-      // Reaproveita o mesmo conjunto de candidatos nas demais páginas
       const promises: Promise<any>[] = [];
       for (let p = 2; p <= totalPaginas; p++) {
         promises.push(
-          restGetFallback(candidatos, { ...rest, numeroPagina: p, numeroRegistros: PAGE_SIZE }, headers)
+          restGet(path, buildQuery(p), headers)
             .catch((e) => { console.error('Página', p, 'falhou:', e?.message); return { lista: [] }; })
         );
       }
