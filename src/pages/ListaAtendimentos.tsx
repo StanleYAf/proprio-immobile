@@ -181,7 +181,7 @@ export default function ListaAtendimentos() {
       if (f.finalidade !== 'todas' && (a.finalidade ?? '') !== f.finalidade) return false;
       if (canFilterByCorretor && f.corretor !== 'todos' && a.corretor !== f.corretor) return false;
       if (f.dataInicio || f.dataFim) {
-        const dt = a.criadoEm ? parseISO(a.criadoEm) : null;
+        const dt = parseImoviewDate(a.criadoEm);
         if (!dt) return false;
         if (!isWithinInterval(dt, { start: f.dataInicio ?? new Date(0), end: f.dataFim ?? new Date() })) return false;
       }
