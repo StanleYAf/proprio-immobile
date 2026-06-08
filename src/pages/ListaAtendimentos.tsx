@@ -131,7 +131,17 @@ const EMPTY_FILTERS: Filters = {
 
 const fmtDate = (d: string | null) => {
   if (!d) return '—';
+  // Aceita "DD/MM/YYYY HH:mm" do Imoview ou ISO
+  const m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) return `${m[1]}/${m[2]}/${m[3]}`;
   try { return format(parseISO(d), 'dd/MM/yyyy', { locale: ptBR }); } catch { return d; }
+};
+
+const parseImoviewDate = (d: string | null): Date | null => {
+  if (!d) return null;
+  const m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1], +(m[4] ?? 0), +(m[5] ?? 0));
+  try { return parseISO(d); } catch { return null; }
 };
 
 export default function ListaAtendimentos() {
