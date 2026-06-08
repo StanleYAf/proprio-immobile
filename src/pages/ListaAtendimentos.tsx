@@ -63,16 +63,16 @@ function normalize(a: AtendimentoRaw): Atendimento {
   return {
     codigo: String(pick(a, ['codigo', 'codigoAtendimento', 'id']) ?? '—'),
     raw: a,
-    nomeCliente: String(pick(a, ['nomeCliente', 'cliente.nome', 'nome', 'pessoa.nome']) ?? '—'),
-    telefoneCliente: pick(a, ['telefoneCliente', 'cliente.telefone', 'telefone', 'pessoa.telefone'])?.toString() ?? null,
-    emailCliente: pick(a, ['emailCliente', 'cliente.email', 'email', 'pessoa.email']) ?? null,
-    status: pick(a, ['status', 'situacao', 'descricaoStatus']),
-    etapa: pick(a, ['etapa', 'estagio', 'fase']),
-    corretor: pick(a, ['nomeCorretor', 'corretor.nome', 'corretor', 'usuario.nome', 'nomeUsuario']),
-    criadoEm: pick(a, ['datahoracadastro', 'dataCadastro', 'dataCriacao', 'created_at']),
-    atualizadoEm: pick(a, ['datahoraultimaalteracao', 'dataAlteracao', 'ultimaAlteracao', 'updated_at']),
+    nomeCliente: String(pick(a, ['lead.nome', 'nomeCliente', 'cliente.nome', 'nome', 'pessoa.nome']) ?? '—'),
+    telefoneCliente: pick(a, ['lead.telefone1', 'lead.telefone', 'telefoneCliente', 'cliente.telefone', 'telefone', 'pessoa.telefone'])?.toString() ?? null,
+    emailCliente: pick(a, ['lead.email', 'emailCliente', 'cliente.email', 'email', 'pessoa.email']) ?? null,
+    status: pick(a, ['situacao', 'status', 'descricaoStatus']),
+    etapa: pick(a, ['funil', 'etapa', 'estagio', 'fase']),
+    corretor: pick(a, ['corretor', 'nomeCorretor', 'corretor.nome', 'usuario.nome', 'nomeUsuario']),
+    criadoEm: pick(a, ['datahorainclusao', 'datahoracadastro', 'datahoraentradalead', 'dataCadastro', 'dataCriacao', 'created_at']),
+    atualizadoEm: pick(a, ['datahoraultimaalteracao', 'datahoraultimainteracao', 'dataAlteracao', 'updated_at']),
     finalidade: pick(a, ['finalidade', 'descricaoFinalidade', 'tipoFinalidade']),
-    tipo: pick(a, ['tipo', 'descricaoTipo', 'tipoImovel']),
+    tipo: pick(a, ['tipo', 'descricaoTipo', 'tipoImovel', 'perfil.tipo']),
   };
 }
 
