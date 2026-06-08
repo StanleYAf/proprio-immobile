@@ -195,9 +195,9 @@ export default function ListaAtendimentos() {
     const agora = new Date();
     const fechadosMes = atendimentos.filter((a) => {
       if (!isClosedWon(a.status)) return false;
-      const dt = a.atualizadoEm || a.criadoEm;
+      const dt = parseImoviewDate(a.atualizadoEm || a.criadoEm);
       if (!dt) return false;
-      try { return isWithinInterval(parseISO(dt), { start: startOfMonth(agora), end: endOfMonth(agora) }); }
+      try { return isWithinInterval(dt, { start: startOfMonth(agora), end: endOfMonth(agora) }); }
       catch { return false; }
     }).length;
     return { total, emAndamento, fechadosMes };
