@@ -460,9 +460,10 @@ export default function ListaAtendimentos() {
                 <p className="text-xs text-muted-foreground">{a.finalidade ?? '—'}{a.tipo ? ` • ${a.tipo}` : ''}</p>
                 <p className="text-[11px] text-muted-foreground">Corretor: {a.corretor ?? '—'}</p>
                 <p className="text-[11px] text-muted-foreground">{fmtDate(a.criadoEm)}</p>
-                <Button variant="outline" className="w-full h-9 mt-1" onClick={() => navigate(`/atendimentos/${a.codigo}`)}>
+                <Button variant="outline" className="w-full h-9 mt-1" onClick={() => navigate(`/atendimentos/${a.codigo}`, { state: { atendimento: a.raw } })}>
                   Abrir
                 </Button>
+
               </motion.div>
             ))}
           </div>
