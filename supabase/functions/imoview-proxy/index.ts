@@ -15,6 +15,31 @@ async function restGet(path: string, params: Record<string, any>, headers: Recor
   return data;
 }
 
+// GET com fallback entre múltiplos paths (útil quando o nome do endpoint varia)
+async function restGetFallback(paths: string[], params: Record<string, any>, headers: Record<string, string>) {
+  let lastErr = '';
+  let lastUrl = '';
+  for (const path of paths) {
+    const url = new URL(`${REST_BASE}${path}`);
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
+    });
+    lastUrl = url.toString();
+    const res = await fetch(lastUrl, { method: 'GET', headers });
+    const text = await res.text();
+    let data: any;
+    try { data = JSON.parse(text); } catch { data = text; }
+    if (res.ok) {
+      console.log(`[imoview-proxy] OK em ${path}`);
+      return data;
+    }
+    lastErr = `REST_${res.status} em ${lastUrl}: ${typeof data === 'string' ? data.slice(0, 200) : JSON.stringify(data).slice(0, 200)}`;
+    console.warn(`[imoview-proxy] Falhou ${path} -> ${res.status}`);
+    if (res.status !== 404) throw new Error(lastErr);
+  }
+  throw new Error(lastErr || `Nenhum endpoint válido entre: ${paths.join(', ')}`);
+}
+
 async function restPost(path: string, body: Record<string, any>, headers: Record<string, string>) {
   const res = await fetch(`${REST_BASE}${path}`, {
     method: 'POST',
@@ -96,9 +121,42 @@ async function runAction(action: string, params: Record<string, any>, chave: str
       return await restGet('/Imovel/App_RetornarDetalhesImovel', params, headers);
 
     case 'listar_atendimentos': {
+      // Endpoint correto: /Atendimento/RetornarAtendimentos (sem App_)
+      // Requer TODOS os parâmetros — numéricos vazios = 0, strings vazias = ""
       const PAGE_SIZE = Math.min(Number(params.numeroRegistros) || 20, 20);
-      const { numeroPagina: _np, numeroRegistros: _nr, ...rest } = params || {};
-      return await getAllPages('/Atendimento/App_RetornarAtendimentos', rest, headers, PAGE_SIZE);
+      const path = '/Atendimento/RetornarAtendimentos';
+      const buildQuery = (pagina: number) => ({
+        numeroPagina: pagina,
+        numeroRegistros: PAGE_SIZE,
+        finalidade: params.finalidade ?? 1,
+        situacao: params.situacao ?? 0,
+        fase: params.fase ?? 0,
+        codigoUnidade: params.codigoUnidade ?? 0,
+        codigoCliente: params.codigoCliente ?? 0,
+        codigoCorretor: params.codigoCorretor ?? 0,
+        codigoMql: params.codigoMql ?? 0,
+        codigoMidia: params.codigoMidia ?? 0,
+        codigoTipo: params.codigoTipo ?? 0,
+        dataInicial: params.dataInicial ?? '',
+        dataFinal: params.dataFinal ?? '',
+        opcaoAtendimento: params.opcaoAtendimento ?? 0,
+        dataHoraInicialUltimaAlteracao: params.dataHoraInicialUltimaAlteracao ?? '',
+        dataHoraFinalUltimaAlteracao: params.dataHoraFinalUltimaAlteracao ?? '',
+      });
+      const primeira = await restGet(path, buildQuery(1), headers);
+      const quantidade: number = Number(primeira?.quantidade ?? primeira?.lista?.length ?? 0);
+      const totalPaginas = Math.max(1, Math.ceil(quantidade / PAGE_SIZE));
+      if (totalPaginas <= 1) return primeira;
+      const promises: Promise<any>[] = [];
+      for (let p = 2; p <= totalPaginas; p++) {
+        promises.push(
+          restGet(path, buildQuery(p), headers)
+            .catch((e) => { console.error('Página', p, 'falhou:', e?.message); return { lista: [] }; })
+        );
+      }
+      const demais = await Promise.all(promises);
+      const lista = [...(primeira?.lista ?? []), ...demais.flatMap((p: any) => p?.lista ?? [])];
+      return { ...primeira, quantidade, lista };
     }
 
     case 'detalhe_atendimento':

@@ -63,16 +63,16 @@ function normalize(a: AtendimentoRaw): Atendimento {
   return {
     codigo: String(pick(a, ['codigo', 'codigoAtendimento', 'id']) ?? '—'),
     raw: a,
-    nomeCliente: String(pick(a, ['nomeCliente', 'cliente.nome', 'nome', 'pessoa.nome']) ?? '—'),
-    telefoneCliente: pick(a, ['telefoneCliente', 'cliente.telefone', 'telefone', 'pessoa.telefone'])?.toString() ?? null,
-    emailCliente: pick(a, ['emailCliente', 'cliente.email', 'email', 'pessoa.email']) ?? null,
-    status: pick(a, ['status', 'situacao', 'descricaoStatus']),
-    etapa: pick(a, ['etapa', 'estagio', 'fase']),
-    corretor: pick(a, ['nomeCorretor', 'corretor.nome', 'corretor', 'usuario.nome', 'nomeUsuario']),
-    criadoEm: pick(a, ['datahoracadastro', 'dataCadastro', 'dataCriacao', 'created_at']),
-    atualizadoEm: pick(a, ['datahoraultimaalteracao', 'dataAlteracao', 'ultimaAlteracao', 'updated_at']),
+    nomeCliente: String(pick(a, ['lead.nome', 'nomeCliente', 'cliente.nome', 'nome', 'pessoa.nome']) ?? '—'),
+    telefoneCliente: pick(a, ['lead.telefone1', 'lead.telefone', 'telefoneCliente', 'cliente.telefone', 'telefone', 'pessoa.telefone'])?.toString() ?? null,
+    emailCliente: pick(a, ['lead.email', 'emailCliente', 'cliente.email', 'email', 'pessoa.email']) ?? null,
+    status: pick(a, ['situacao', 'status', 'descricaoStatus']),
+    etapa: pick(a, ['funil', 'etapa', 'estagio', 'fase']),
+    corretor: pick(a, ['corretor', 'nomeCorretor', 'corretor.nome', 'usuario.nome', 'nomeUsuario']),
+    criadoEm: pick(a, ['datahorainclusao', 'datahoracadastro', 'datahoraentradalead', 'dataCadastro', 'dataCriacao', 'created_at']),
+    atualizadoEm: pick(a, ['datahoraultimaalteracao', 'datahoraultimainteracao', 'dataAlteracao', 'updated_at']),
     finalidade: pick(a, ['finalidade', 'descricaoFinalidade', 'tipoFinalidade']),
-    tipo: pick(a, ['tipo', 'descricaoTipo', 'tipoImovel']),
+    tipo: pick(a, ['tipo', 'descricaoTipo', 'tipoImovel', 'perfil.tipo']),
   };
 }
 
@@ -131,7 +131,17 @@ const EMPTY_FILTERS: Filters = {
 
 const fmtDate = (d: string | null) => {
   if (!d) return '—';
+  // Aceita "DD/MM/YYYY HH:mm" do Imoview ou ISO
+  const m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) return `${m[1]}/${m[2]}/${m[3]}`;
   try { return format(parseISO(d), 'dd/MM/yyyy', { locale: ptBR }); } catch { return d; }
+};
+
+const parseImoviewDate = (d: string | null): Date | null => {
+  if (!d) return null;
+  const m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1], +(m[4] ?? 0), +(m[5] ?? 0));
+  try { return parseISO(d); } catch { return null; }
 };
 
 export default function ListaAtendimentos() {
@@ -171,7 +181,7 @@ export default function ListaAtendimentos() {
       if (f.finalidade !== 'todas' && (a.finalidade ?? '') !== f.finalidade) return false;
       if (canFilterByCorretor && f.corretor !== 'todos' && a.corretor !== f.corretor) return false;
       if (f.dataInicio || f.dataFim) {
-        const dt = a.criadoEm ? parseISO(a.criadoEm) : null;
+        const dt = parseImoviewDate(a.criadoEm);
         if (!dt) return false;
         if (!isWithinInterval(dt, { start: f.dataInicio ?? new Date(0), end: f.dataFim ?? new Date() })) return false;
       }
@@ -185,9 +195,9 @@ export default function ListaAtendimentos() {
     const agora = new Date();
     const fechadosMes = atendimentos.filter((a) => {
       if (!isClosedWon(a.status)) return false;
-      const dt = a.atualizadoEm || a.criadoEm;
+      const dt = parseImoviewDate(a.atualizadoEm || a.criadoEm);
       if (!dt) return false;
-      try { return isWithinInterval(parseISO(dt), { start: startOfMonth(agora), end: endOfMonth(agora) }); }
+      try { return isWithinInterval(dt, { start: startOfMonth(agora), end: endOfMonth(agora) }); }
       catch { return false; }
     }).length;
     return { total, emAndamento, fechadosMes };
