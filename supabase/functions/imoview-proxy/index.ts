@@ -160,32 +160,30 @@ async function runAction(action: string, params: Record<string, any>, chave: str
     }
 
     case 'detalhe_atendimento': {
-      const cod = params.codigoAtendimento ?? params.codigoatendimento ?? params.codigo;
-      const paths = [
-        '/Atendimento/App_DetalhesAtendimentos',
-        '/Atendimento/App_DetalhesAtendimento',
-        '/Atendimento/RetornarAtendimento',
-        '/Atendimento/App_RetornarAtendimento',
+      const id = params.codigoAtendimento ?? params.codigoatendimento ?? params.codigo;
+      const tentativas = [
+        `${REST_BASE}/Atendimento/App_DetalhesAtendimentos?codigoAtendimento=${id}`,
+        `${REST_BASE}/Atendimento/App_DetalhesAtendimentos?codigoatendimento=${id}`,
+        `${REST_BASE}/Atendimento/App_DetalhesAtendimentos?codigo=${id}`,
+        `${REST_BASE}/Atendimento/RetornarAtendimentos?codigoAtendimento=${id}`,
+        `${REST_BASE}/Atendimento/App_RetornarAtendimentos?codigoAtendimento=${id}`,
       ];
-      const paramVariants = [
-        { codigoAtendimento: cod },
-        { codigoatendimento: cod },
-        { codigo: cod },
-      ];
-      let lastErr = '';
-      for (const path of paths) {
-        for (const pv of paramVariants) {
-          try {
-            const data = await restGet(path, pv, headers);
-            console.log(`[imoview-proxy] detalhe_atendimento OK em ${path} com ${Object.keys(pv)[0]}`);
-            return data;
-          } catch (e: any) {
-            lastErr = e?.message || String(e);
-            if (!/REST_404/.test(lastErr)) throw e;
-          }
+      let lastStatus = 0;
+      let lastBody = '';
+      for (const url of tentativas) {
+        const res = await fetch(url, { method: 'GET', headers });
+        const text = await res.text();
+        if (res.ok) {
+          let data: any;
+          try { data = JSON.parse(text); } catch { data = text; }
+          console.log(`[imoview-proxy] detalhe_atendimento OK em ${url}`);
+          return { ...(typeof data === 'object' ? data : { data }), endpointUsado: url };
         }
+        lastStatus = res.status;
+        lastBody = text.slice(0, 200);
+        console.warn(`[imoview-proxy] detalhe_atendimento ${res.status} em ${url}`);
       }
-      throw new Error(lastErr || 'Nenhum endpoint válido para detalhe_atendimento');
+      throw new Error(`Nenhum endpoint funcionou para detalhe (último ${lastStatus}: ${lastBody})`);
     }
 
     case 'imoveis_encontrados':
