@@ -159,8 +159,34 @@ async function runAction(action: string, params: Record<string, any>, chave: str
       return { ...primeira, quantidade, lista };
     }
 
-    case 'detalhe_atendimento':
-      return await restGet('/Atendimento/App_DetalhesAtendimentos', params, headers);
+    case 'detalhe_atendimento': {
+      const cod = params.codigoAtendimento ?? params.codigoatendimento ?? params.codigo;
+      const paths = [
+        '/Atendimento/App_DetalhesAtendimentos',
+        '/Atendimento/App_DetalhesAtendimento',
+        '/Atendimento/RetornarAtendimento',
+        '/Atendimento/App_RetornarAtendimento',
+      ];
+      const paramVariants = [
+        { codigoAtendimento: cod },
+        { codigoatendimento: cod },
+        { codigo: cod },
+      ];
+      let lastErr = '';
+      for (const path of paths) {
+        for (const pv of paramVariants) {
+          try {
+            const data = await restGet(path, pv, headers);
+            console.log(`[imoview-proxy] detalhe_atendimento OK em ${path} com ${Object.keys(pv)[0]}`);
+            return data;
+          } catch (e: any) {
+            lastErr = e?.message || String(e);
+            if (!/REST_404/.test(lastErr)) throw e;
+          }
+        }
+      }
+      throw new Error(lastErr || 'Nenhum endpoint válido para detalhe_atendimento');
+    }
 
     case 'imoveis_encontrados':
       return await restGet('/Atendimento/App_RetornarImoveisEncontrados', params, headers);
