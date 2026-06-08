@@ -28,6 +28,29 @@ async function restPost(path: string, body: Record<string, any>, headers: Record
   return data;
 }
 
+// Paginação automática para endpoints GET que retornam { quantidade, lista }
+async function getAllPages(
+  path: string,
+  baseParams: Record<string, any>,
+  headers: Record<string, string>,
+  pageSize = 20,
+) {
+  const primeira = await restGet(path, { ...baseParams, numeroPagina: 1, numeroRegistros: pageSize }, headers);
+  const quantidade: number = Number(primeira?.quantidade ?? primeira?.lista?.length ?? 0);
+  const totalPaginas = Math.max(1, Math.ceil(quantidade / pageSize));
+  if (totalPaginas <= 1) return primeira;
+  const promises: Promise<any>[] = [];
+  for (let p = 2; p <= totalPaginas; p++) {
+    promises.push(
+      restGet(path, { ...baseParams, numeroPagina: p, numeroRegistros: pageSize }, headers)
+        .catch((e) => { console.error('Página', p, 'falhou:', e?.message); return { lista: [] }; })
+    );
+  }
+  const demais = await Promise.all(promises);
+  const lista = [...(primeira?.lista ?? []), ...demais.flatMap((p) => p?.lista ?? [])];
+  return { ...primeira, quantidade, lista };
+}
+
 async function runAction(action: string, params: Record<string, any>, chave: string) {
   const headers = {
     'Content-Type': 'application/json',
@@ -45,7 +68,6 @@ async function runAction(action: string, params: Record<string, any>, chave: str
       const opt = ['destinacao','codigoTipo','codigocidade','codigosbairros','valorde','valorate','numeroquartos','numerovagas','areaprincipalde','ordenacao'];
       for (const k of opt) if (params[k] !== undefined && params[k] !== null && params[k] !== '') baseBody[k] = params[k];
 
-      // PASSO 1: primeira página para descobrir o total
       const primeira = await restPost('/Imovel/RetornarImoveisDisponiveis',
         { ...baseBody, numeroPagina: 1, numeroRegistros: PAGE_SIZE }, headers);
 
@@ -54,7 +76,6 @@ async function runAction(action: string, params: Record<string, any>, chave: str
 
       if (totalPaginas <= 1) return primeira;
 
-      // PASSO 2: páginas restantes em paralelo
       const promises: Promise<any>[] = [];
       for (let pagina = 2; pagina <= totalPaginas; pagina++) {
         promises.push(
@@ -70,12 +91,49 @@ async function runAction(action: string, params: Record<string, any>, chave: str
       ];
       return { ...primeira, quantidade, lista };
     }
+
     case 'detalhe_imovel':
       return await restGet('/Imovel/App_RetornarDetalhesImovel', params, headers);
-    case 'listar_atendimentos':
-      return await restGet('/Atendimento/App_RetornarAtendimentos', params, headers);
-    case 'listar_clientes':
-      return await restGet('/Cliente/App_RetornarPessoas', params, headers);
+
+    case 'listar_atendimentos': {
+      const PAGE_SIZE = Math.min(Number(params.numeroRegistros) || 20, 20);
+      const { numeroPagina: _np, numeroRegistros: _nr, ...rest } = params || {};
+      return await getAllPages('/Atendimento/App_RetornarAtendimentos', rest, headers, PAGE_SIZE);
+    }
+
+    case 'detalhe_atendimento':
+      return await restGet('/Atendimento/App_DetalhesAtendimentos', params, headers);
+
+    case 'imoveis_encontrados':
+      return await restGet('/Atendimento/App_RetornarImoveisEncontrados', params, headers);
+
+    case 'imoveis_carrinho':
+      return await restGet('/Atendimento/App_RetornarImoveisCarrinho', params, headers);
+
+    case 'imoveis_visita':
+      return await restGet('/Atendimento/App_RetornarImoveisVisita', params, headers);
+
+    case 'imoveis_proposta':
+      return await restGet('/Atendimento/App_RetornarImoveisProposta', params, headers);
+
+    case 'incluir_interacao':
+      return await restPost('/Atendimento/App_IncluirInteracao', params, headers);
+
+    case 'incluir_atendimento':
+      return await restPost('/Atendimento/App_IncluirAtendimento', params, headers);
+
+    case 'salvar_atendimento':
+      return await restPost('/Atendimento/App_SalvarAtendimento', params, headers);
+
+    case 'descartar_atendimento':
+      return await restPost('/Atendimento/App_DescartarAtendimento', params, headers);
+
+    case 'listar_clientes': {
+      const PAGE_SIZE = Math.min(Number(params.numeroRegistros) || 20, 20);
+      const { numeroPagina: _np, numeroRegistros: _nr, ...rest } = params || {};
+      return await getAllPages('/Cliente/App_RetornarPessoas', rest, headers, PAGE_SIZE);
+    }
+
     default:
       throw new Error(`UNKNOWN_ACTION: ${action}`);
   }
