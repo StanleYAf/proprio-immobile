@@ -41,10 +41,60 @@ export function useImoviewImovelDetalhe(codigoImovel?: string | number | null) {
   });
 }
 
-export function useImoviewAtendimentos(filtros: { numeroPagina?: number; numeroRegistros?: number; codigoUsuario?: string; status?: string }) {
+export type AtendimentosFiltros = {
+  codigoUsuario?: string | number;
+  status?: string;
+};
+
+export function useImoviewAtendimentos(filtros: AtendimentosFiltros = {}) {
   return useQuery({
     queryKey: ['imoview', 'atendimentos', filtros],
     queryFn: () => callImoview('listar_atendimentos', filtros),
+    retry: false,
+  });
+}
+
+export function useImoviewAtendimentoDetalhe(codigoAtendimento?: string | number | null) {
+  return useQuery({
+    queryKey: ['imoview', 'atendimento', codigoAtendimento],
+    queryFn: () => callImoview('detalhe_atendimento', { codigoAtendimento }),
+    enabled: !!codigoAtendimento,
+    retry: false,
+  });
+}
+
+export function useImoviewImoveisEncontrados(codigoAtendimento?: string | number | null) {
+  return useQuery({
+    queryKey: ['imoview', 'atendimento-encontrados', codigoAtendimento],
+    queryFn: () => callImoview('imoveis_encontrados', { codigoAtendimento }),
+    enabled: !!codigoAtendimento,
+    retry: false,
+  });
+}
+
+export function useImoviewImoveisCarrinho(codigoAtendimento?: string | number | null) {
+  return useQuery({
+    queryKey: ['imoview', 'atendimento-carrinho', codigoAtendimento],
+    queryFn: () => callImoview('imoveis_carrinho', { codigoAtendimento }),
+    enabled: !!codigoAtendimento,
+    retry: false,
+  });
+}
+
+export function useImoviewImoveisVisita(codigoAtendimento?: string | number | null) {
+  return useQuery({
+    queryKey: ['imoview', 'atendimento-visita', codigoAtendimento],
+    queryFn: () => callImoview('imoveis_visita', { codigoAtendimento }),
+    enabled: !!codigoAtendimento,
+    retry: false,
+  });
+}
+
+export function useImoviewImoveisProposta(codigoAtendimento?: string | number | null) {
+  return useQuery({
+    queryKey: ['imoview', 'atendimento-proposta', codigoAtendimento],
+    queryFn: () => callImoview('imoveis_proposta', { codigoAtendimento }),
+    enabled: !!codigoAtendimento,
     retry: false,
   });
 }
