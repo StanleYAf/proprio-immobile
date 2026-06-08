@@ -54,14 +54,9 @@ export function useImoviewAtendimentos(filtros: AtendimentosFiltros = {}) {
   });
 }
 
-export function useImoviewAtendimentoDetalhe(codigoAtendimento?: string | number | null) {
-  return useQuery({
-    queryKey: ['imoview', 'atendimento', codigoAtendimento],
-    queryFn: () => callImoview('detalhe_atendimento', { codigoAtendimento }),
-    enabled: !!codigoAtendimento,
-    retry: false,
-  });
-}
+// detalhe_atendimento removido: o endpoint individual não existe na API Imoview.
+// Os detalhes vêm embutidos em cada item de listar_atendimentos.
+
 
 export function useImoviewImoveisEncontrados(codigoAtendimento?: string | number | null) {
   return useQuery({
