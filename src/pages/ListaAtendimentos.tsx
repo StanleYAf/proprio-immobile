@@ -89,17 +89,13 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const etapaStyleFor = (etapa?: string | null): string => {
-  const base = 'bg-slate-500/20 text-slate-300 border-slate-500/30';
-  if (!etapa) return base;
+  if (!etapa) return 'bg-gray-100 text-gray-600 border-gray-200';
   const s = String(etapa).toLowerCase();
-  if (s.includes('descart') || s.includes('perdid')) return 'bg-red-500/20 text-red-300 border-red-500/30';
-  if (s.includes('fecha')) return 'bg-green-500/20 text-green-300 border-green-500/30';
-  if (s.includes('negocia')) return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
-  if (s.includes('visita')) return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
-  if (s.includes('qualific')) return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
-  if (s.includes('contato') || s.includes('novo')) return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
-  return base;
+  if (s.includes('inbound')) return 'bg-blue-100 text-blue-700 border-blue-200';
+  if (s.includes('outbound')) return 'bg-purple-100 text-purple-700 border-purple-200';
+  return 'bg-gray-100 text-gray-600 border-gray-200';
 };
+
 
 const styleFor = (map: Record<string, string>, key?: string | null, fallback = '') => {
   if (!key) return fallback;
