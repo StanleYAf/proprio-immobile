@@ -163,6 +163,7 @@ export default function ListaAtendimentos() {
 
   const atendimentos: Atendimento[] = useMemo(() => {
     const lista: AtendimentoRaw[] = (data as any)?.lista ?? (Array.isArray(data) ? data : []);
+    if (lista[0]) console.log('[Atendimentos] primeiro item bruto:', lista[0]);
     return lista.map(normalize);
   }, [data]);
 
