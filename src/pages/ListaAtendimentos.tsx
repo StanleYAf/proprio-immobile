@@ -67,7 +67,7 @@ function normalize(a: AtendimentoRaw): Atendimento {
     telefoneCliente: pick(a, ['lead.telefone1', 'lead.telefone', 'telefoneCliente', 'cliente.telefone', 'telefone', 'pessoa.telefone'])?.toString() ?? null,
     emailCliente: pick(a, ['lead.email', 'emailCliente', 'cliente.email', 'email', 'pessoa.email']) ?? null,
     status: pick(a, ['situacao', 'status', 'descricaoStatus']),
-    etapa: pick(a, ['funil', 'etapa', 'estagio', 'fase']),
+    etapa: pick(a, ['etapa', 'nomeEtapa', 'descricaoEtapa', 'situacao', 'nomeSituacao', 'funil', 'estagio', 'fase']),
     corretor: pick(a, ['corretor', 'nomeCorretor', 'corretor.nome', 'usuario.nome', 'nomeUsuario']),
     criadoEm: pick(a, ['datahorainclusao', 'datahoracadastro', 'datahoraentradalead', 'dataCadastro', 'dataCriacao', 'created_at']),
     atualizadoEm: pick(a, ['datahoraultimaalteracao', 'datahoraultimainteracao', 'dataAlteracao', 'updated_at']),
@@ -88,14 +88,17 @@ const STATUS_STYLES: Record<string, string> = {
   perdido: 'bg-red-600 text-white',
 };
 
-const ETAPA_STYLES: Record<string, string> = {
-  contato: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
-  qualificacao: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-  qualificação: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-  visita: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-  negociacao: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
-  negociação: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
-  fechamento: 'bg-green-500/20 text-green-300 border-green-500/30',
+const etapaStyleFor = (etapa?: string | null): string => {
+  const base = 'bg-slate-500/20 text-slate-300 border-slate-500/30';
+  if (!etapa) return base;
+  const s = String(etapa).toLowerCase();
+  if (s.includes('descart') || s.includes('perdid')) return 'bg-red-500/20 text-red-300 border-red-500/30';
+  if (s.includes('fecha')) return 'bg-green-500/20 text-green-300 border-green-500/30';
+  if (s.includes('negocia')) return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
+  if (s.includes('visita')) return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+  if (s.includes('qualific')) return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
+  if (s.includes('contato') || s.includes('novo')) return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
+  return base;
 };
 
 const styleFor = (map: Record<string, string>, key?: string | null, fallback = '') => {
@@ -217,8 +220,8 @@ export default function ListaAtendimentos() {
 
   const EtapaBadge = ({ etapa }: { etapa: string | null }) => (
     <span className={cn(
-      'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border',
-      styleFor(ETAPA_STYLES, etapa, 'bg-slate-500/20 text-slate-300 border-slate-500/30')
+      'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize',
+      etapaStyleFor(etapa)
     )}>
       {etapa ?? '—'}
     </span>
