@@ -217,12 +217,13 @@ export default function ListaAtendimentos() {
 
   const EtapaBadge = ({ etapa }: { etapa: string | null }) => (
     <span className={cn(
-      'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize',
+      'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap',
       etapaStyleFor(etapa)
     )}>
       {etapa ?? '—'}
     </span>
   );
+
 
   return (
     <AppLayout title="Atendimentos">
