@@ -67,7 +67,7 @@ function normalize(a: AtendimentoRaw): Atendimento {
     telefoneCliente: pick(a, ['lead.telefone1', 'lead.telefone', 'telefoneCliente', 'cliente.telefone', 'telefone', 'pessoa.telefone'])?.toString() ?? null,
     emailCliente: pick(a, ['lead.email', 'emailCliente', 'cliente.email', 'email', 'pessoa.email']) ?? null,
     status: pick(a, ['situacao', 'status', 'descricaoStatus']),
-    etapa: pick(a, ['funil', 'etapa', 'estagio', 'fase']),
+    etapa: pick(a, ['etapa', 'nomeEtapa', 'descricaoEtapa', 'situacao', 'nomeSituacao', 'funil', 'estagio', 'fase']),
     corretor: pick(a, ['corretor', 'nomeCorretor', 'corretor.nome', 'usuario.nome', 'nomeUsuario']),
     criadoEm: pick(a, ['datahorainclusao', 'datahoracadastro', 'datahoraentradalead', 'dataCadastro', 'dataCriacao', 'created_at']),
     atualizadoEm: pick(a, ['datahoraultimaalteracao', 'datahoraultimainteracao', 'dataAlteracao', 'updated_at']),
