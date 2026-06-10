@@ -246,9 +246,35 @@ export default function ListaAtendimentos() {
           Filtros
           {filtersOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </button>
-        <Button onClick={() => setNovoOpen(true)} className="h-9">
-          <Plus className="w-4 h-4 mr-1" /> Novo Atendimento
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-md border border-border bg-card overflow-hidden">
+            <button
+              type="button"
+              onClick={() => changeView('lista')}
+              className={cn(
+                'px-3 h-9 text-xs font-medium inline-flex items-center gap-1.5 transition-colors',
+                view === 'lista' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+              aria-pressed={view === 'lista'}
+            >
+              <ListIcon className="w-4 h-4" /> Lista
+            </button>
+            <button
+              type="button"
+              onClick={() => changeView('kanban')}
+              className={cn(
+                'px-3 h-9 text-xs font-medium inline-flex items-center gap-1.5 transition-colors border-l border-border',
+                view === 'kanban' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+              aria-pressed={view === 'kanban'}
+            >
+              <LayoutGrid className="w-4 h-4" /> Kanban
+            </button>
+          </div>
+          <Button onClick={() => setNovoOpen(true)} className="h-9">
+            <Plus className="w-4 h-4 mr-1" /> Novo Atendimento
+          </Button>
+        </div>
       </div>
 
       <AnimatePresence>
