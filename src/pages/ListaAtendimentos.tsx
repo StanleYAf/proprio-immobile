@@ -6,6 +6,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   Plus, Filter, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
   CalendarIcon, Search, Phone, UserCheck, AlertTriangle, Loader2,
+  LayoutGrid, List as ListIcon, User as UserIcon, Flame, Thermometer, Snowflake,
 } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -154,6 +155,14 @@ export default function ListaAtendimentos() {
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [novoOpen, setNovoOpen] = useState(false);
+  const [view, setView] = useState<'lista' | 'kanban'>(() => {
+    if (typeof window === 'undefined') return 'lista';
+    return (localStorage.getItem('atendimentos:view') as 'lista' | 'kanban') || 'lista';
+  });
+  const changeView = (v: 'lista' | 'kanban') => {
+    setView(v);
+    try { localStorage.setItem('atendimentos:view', v); } catch {}
+  };
 
   const { data, isLoading, error, refetch, isFetching } = useImoviewAtendimentos({});
 
@@ -237,9 +246,35 @@ export default function ListaAtendimentos() {
           Filtros
           {filtersOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </button>
-        <Button onClick={() => setNovoOpen(true)} className="h-9">
-          <Plus className="w-4 h-4 mr-1" /> Novo Atendimento
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-md border border-border bg-card overflow-hidden">
+            <button
+              type="button"
+              onClick={() => changeView('lista')}
+              className={cn(
+                'px-3 h-9 text-xs font-medium inline-flex items-center gap-1.5 transition-colors',
+                view === 'lista' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+              aria-pressed={view === 'lista'}
+            >
+              <ListIcon className="w-4 h-4" /> Lista
+            </button>
+            <button
+              type="button"
+              onClick={() => changeView('kanban')}
+              className={cn(
+                'px-3 h-9 text-xs font-medium inline-flex items-center gap-1.5 transition-colors border-l border-border',
+                view === 'kanban' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+              aria-pressed={view === 'kanban'}
+            >
+              <LayoutGrid className="w-4 h-4" /> Kanban
+            </button>
+          </div>
+          <Button onClick={() => setNovoOpen(true)} className="h-9">
+            <Plus className="w-4 h-4 mr-1" /> Novo Atendimento
+          </Button>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -387,6 +422,11 @@ export default function ListaAtendimentos() {
         <div className="rounded-2xl border border-dashed border-border p-10 text-center">
           <p className="text-sm text-muted-foreground">Nenhum atendimento encontrado.</p>
         </div>
+      ) : view === 'kanban' ? (
+        <KanbanView
+          atendimentos={filtered}
+          onOpen={(a) => navigate(`/atendimentos/${a.codigo}`, { state: { atendimento: a.raw } })}
+        />
       ) : (
         <>
           <div className="hidden sm:block rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
@@ -559,5 +599,149 @@ function NovoAtendimentoDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ============================ KANBAN VIEW ============================
+
+const KANBAN_COLUMNS: { key: string; label: string; match: (s: string) => boolean }[] = [
+  { key: 'novo', label: 'Novo Lead', match: (s) => s === 'novo' || s.includes('aguardando atendimento') },
+  { key: 'em-atendimento', label: 'Em Atendimento', match: (s) => s === 'em atendimento' },
+  { key: 'visita', label: 'Visita', match: (s) => s.includes('visita') },
+  { key: 'proposta', label: 'Proposta', match: (s) => s.includes('proposta') || s.includes('negocia') },
+  { key: 'fechado', label: 'Fechado', match: (s) => s.includes('fechad') || s.includes('contrato') },
+  { key: 'descartado', label: 'Descartado', match: (s) => s.includes('descart') || s.includes('perdid') },
+];
+
+function groupByKanban(atendimentos: Atendimento[]) {
+  const groups: { key: string; label: string; items: Atendimento[] }[] =
+    KANBAN_COLUMNS.map((c) => ({ key: c.key, label: c.label, items: [] }));
+  const dynamic = new Map<string, { key: string; label: string; items: Atendimento[] }>();
+
+  for (const a of atendimentos) {
+    const raw = (a.status ?? '').toString().trim();
+    const s = raw.toLowerCase();
+    let placed = false;
+    for (let i = 0; i < KANBAN_COLUMNS.length; i++) {
+      if (s && KANBAN_COLUMNS[i].match(s)) {
+        groups[i].items.push(a);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      const label = raw || 'Sem status';
+      const key = `dyn:${label.toLowerCase()}`;
+      if (!dynamic.has(key)) dynamic.set(key, { key, label, items: [] });
+      dynamic.get(key)!.items.push(a);
+    }
+  }
+  return [...groups, ...Array.from(dynamic.values())];
+}
+
+const MAX_CARDS_PER_COL = 50;
+
+function TermometroIcon({ valor }: { valor: string | null }) {
+  if (!valor) return null;
+  const v = valor.toLowerCase();
+  if (v.includes('quente')) return <Flame className="w-3.5 h-3.5 text-red-500" />;
+  if (v.includes('morno')) return <Thermometer className="w-3.5 h-3.5 text-orange-500" />;
+  if (v.includes('frio')) return <Snowflake className="w-3.5 h-3.5 text-blue-500" />;
+  return null;
+}
+
+function KanbanCard({ a, onOpen, index }: { a: Atendimento; onOpen: (a: Atendimento) => void; index: number }) {
+  const r = a.raw || {};
+  const termometro: string | null = r.termometro ?? r.Termometro ?? null;
+  const dataEntrada: string | null = r.datahoraentradalead ?? a.criadoEm ?? null;
+
+  return (
+    <motion.button
+      type="button"
+      onClick={() => onOpen(a)}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, delay: Math.min(index, 20) * 0.02 }}
+      className="w-full text-left rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow border border-gray-200 p-3 space-y-2"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-gray-900 truncate">{a.nomeCliente}</p>
+          {a.telefoneCliente && (
+            <p className="text-[11px] text-gray-500 truncate">{a.telefoneCliente}</p>
+          )}
+        </div>
+        <TermometroIcon valor={termometro} />
+      </div>
+
+      {a.etapa && (
+        <span
+          className={cn(
+            'inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border whitespace-nowrap',
+            etapaStyleFor(a.etapa)
+          )}
+        >
+          {a.etapa}
+        </span>
+      )}
+
+      <div className="flex items-center justify-between text-[11px] text-gray-600 pt-1">
+        <span className="inline-flex items-center gap-1 truncate min-w-0">
+          <UserIcon className="w-3 h-3 shrink-0 text-gray-400" />
+          <span className="truncate">{a.corretor ?? '—'}</span>
+        </span>
+        <span className="text-gray-400 shrink-0">{fmtDate(dataEntrada)}</span>
+      </div>
+    </motion.button>
+  );
+}
+
+function KanbanView({
+  atendimentos, onOpen,
+}: { atendimentos: Atendimento[]; onOpen: (a: Atendimento) => void }) {
+  const columns = useMemo(() => groupByKanban(atendimentos), [atendimentos]);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  return (
+    <div className="overflow-x-auto pb-4 -mx-2 px-2">
+      <div className="flex gap-3 min-w-max">
+        {columns.map((col) => {
+          const showAll = !!expanded[col.key];
+          const visible = showAll ? col.items : col.items.slice(0, MAX_CARDS_PER_COL);
+          const hidden = col.items.length - visible.length;
+          return (
+            <div
+              key={col.key}
+              className="w-[280px] shrink-0 rounded-xl border border-gray-200 bg-gray-50 flex flex-col max-h-[70vh]"
+            >
+              <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-gray-50 rounded-t-xl">
+                <span className="text-xs font-semibold text-gray-700 truncate">{col.label}</span>
+                <span className="text-[11px] font-medium text-gray-500 ml-2">· {col.items.length}</span>
+              </div>
+              <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                {col.items.length === 0 ? (
+                  <p className="text-[11px] text-gray-400 text-center py-6">Sem atendimentos</p>
+                ) : (
+                  <>
+                    {visible.map((a, i) => (
+                      <KanbanCard key={a.codigo + i} a={a} onOpen={onOpen} index={i} />
+                    ))}
+                    {hidden > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setExpanded((p) => ({ ...p, [col.key]: true }))}
+                        className="w-full text-xs py-2 rounded-md text-gray-600 hover:bg-gray-100 transition-colors"
+                      >
+                        Ver mais {hidden} atendimento{hidden > 1 ? 's' : ''}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
