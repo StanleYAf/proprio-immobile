@@ -6,6 +6,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   Plus, Filter, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
   CalendarIcon, Search, Phone, UserCheck, AlertTriangle, Loader2,
+  LayoutGrid, List as ListIcon, User as UserIcon, Flame, Thermometer, Snowflake,
 } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
