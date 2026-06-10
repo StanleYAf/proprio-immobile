@@ -155,6 +155,14 @@ export default function ListaAtendimentos() {
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [novoOpen, setNovoOpen] = useState(false);
+  const [view, setView] = useState<'lista' | 'kanban'>(() => {
+    if (typeof window === 'undefined') return 'lista';
+    return (localStorage.getItem('atendimentos:view') as 'lista' | 'kanban') || 'lista';
+  });
+  const changeView = (v: 'lista' | 'kanban') => {
+    setView(v);
+    try { localStorage.setItem('atendimentos:view', v); } catch {}
+  };
 
   const { data, isLoading, error, refetch, isFetching } = useImoviewAtendimentos({});
 
