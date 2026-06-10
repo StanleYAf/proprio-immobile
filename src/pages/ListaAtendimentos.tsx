@@ -422,6 +422,11 @@ export default function ListaAtendimentos() {
         <div className="rounded-2xl border border-dashed border-border p-10 text-center">
           <p className="text-sm text-muted-foreground">Nenhum atendimento encontrado.</p>
         </div>
+      ) : view === 'kanban' ? (
+        <KanbanView
+          atendimentos={filtered}
+          onOpen={(a) => navigate(`/atendimentos/${a.codigo}`, { state: { atendimento: a.raw } })}
+        />
       ) : (
         <>
           <div className="hidden sm:block rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
