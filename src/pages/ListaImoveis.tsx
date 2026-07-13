@@ -631,7 +631,7 @@ export default function ListaImoveis() {
                     {isImoview ? (
                       <div className="flex gap-2 mt-1">
                         <Button
-                          onClick={() => setSelectedImoview(i._raw)}
+                          onClick={() => navigate(`/imoveis/${i.codigo}`, { state: { imovel: i._raw, origem: 'imoview' } })}
                           variant="outline"
                           className="flex-1 h-9"
                         >
@@ -648,7 +648,7 @@ export default function ListaImoveis() {
                       </div>
                     ) : (
                       <Button
-                        onClick={() => navigate(`/imoveis/${i.id}`)}
+                        onClick={() => navigate(`/imoveis/${i.id}`, { state: { imovel: i, origem: 'local' } })}
                         variant="outline"
                         className="w-full mt-1 h-9"
                       >
