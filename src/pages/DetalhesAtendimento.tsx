@@ -204,6 +204,38 @@ export default function DetalhesAtendimento() {
   const [novoConteudo, setNovoConteudo] = useState('');
   const [enviando, setEnviando] = useState(false);
 
+  // Dialog states
+  const [dialogVisita, setDialogVisita] = useState(false);
+  const [dialogProposta, setDialogProposta] = useState(false);
+  const [dialogDescartar, setDialogDescartar] = useState(false);
+  const [dialogTransferir, setDialogTransferir] = useState(false);
+
+  // Imóveis em cache para os selects
+  const imoveisCache = useMemo(() => {
+    const queries = qc.getQueriesData({ queryKey: ['imoview', 'imoveis'] });
+    const all: any[] = [];
+    for (const [, data] of queries) {
+      const lista: any[] = (data as any)?.lista ?? [];
+      for (const im of lista) {
+        if (!all.find((x) => String(x.codigo) === String(im.codigo))) all.push(im);
+      }
+    }
+    return all;
+  }, [qc, dialogVisita, dialogProposta]);
+
+  // Usuários para transferência
+  const [usuarios, setUsuarios] = useState<any[]>([]);
+  const [carregandoUsuarios, setCarregandoUsuarios] = useState(false);
+  useEffect(() => {
+    if (dialogTransferir && usuarios.length === 0) {
+      setCarregandoUsuarios(true);
+      callImoview('listar_usuarios', {})
+        .then((r: any) => setUsuarios(r?.lista ?? (Array.isArray(r) ? r : [])))
+        .catch((e: any) => toast.error(e?.message || 'Erro ao carregar usuários'))
+        .finally(() => setCarregandoUsuarios(false));
+    }
+  }, [dialogTransferir]);
+
   const registrarInteracao = async () => {
     if (!novoConteudo.trim()) { toast.error('Conteúdo obrigatório'); return; }
     setEnviando(true);
@@ -223,6 +255,7 @@ export default function DetalhesAtendimento() {
       setEnviando(false);
     }
   };
+
 
   const perfilPreenchido = useMemo(() => {
     const arrs = [perfil?.tiposimoveis, perfil?.cidades, perfil?.bairros].some(
