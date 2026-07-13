@@ -515,13 +515,29 @@ export default function DetalhesAtendimento() {
         </TabsContent>
 
         <TabsContent value="encontrados" className="mt-4">
-          <ImoveisGrid items={encontradosList} navigate={navigate} emptyMsg="Nenhum imóvel encontrado." />
+          <ImoveisGrid
+            items={encontradosList}
+            navigate={navigate}
+            emptyMsg="Nenhum imóvel encontrado."
+            cartCodes={cartCodes}
+            onAdd={handleAddCarrinho}
+            onRemove={handleRemoveCarrinho}
+            busyCode={cartBusy}
+          />
         </TabsContent>
 
         <TabsContent value="visitas" className="mt-4 space-y-6">
           <section>
             <h3 className="text-sm font-semibold mb-2">Carrinho</h3>
-            <ImoveisGrid items={imoveisCarrinho} navigate={navigate} emptyMsg="Nenhum imóvel no carrinho." />
+            <ImoveisGrid
+              items={carrinhoLocal}
+              navigate={navigate}
+              emptyMsg="Nenhum imóvel no carrinho."
+              cartCodes={cartCodes}
+              onRemove={handleRemoveCarrinho}
+              onAgendar={openAgendarVisita}
+              busyCode={cartBusy}
+            />
           </section>
           <section>
             <h3 className="text-sm font-semibold mb-2">Visitas</h3>
