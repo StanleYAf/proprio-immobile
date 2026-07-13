@@ -41,6 +41,19 @@ export function useImoviewImovelDetalhe(codigoImovel?: string | number | null) {
   });
 }
 
+export function useImoviewImoveisAlterados(codigoImovel?: string | number | null) {
+  return useQuery({
+    queryKey: ['imoview', 'imoveis-alterados', codigoImovel],
+    queryFn: () => callImoview('imoveis_alterados', {
+      codigosimoveis: String(codigoImovel),
+      numeroPagina: 1,
+      numeroRegistros: 20,
+    }),
+    enabled: !!codigoImovel,
+    retry: false,
+  });
+}
+
 export type AtendimentosFiltros = {
   codigoUsuario?: string | number;
   status?: string;
