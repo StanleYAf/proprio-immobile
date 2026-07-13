@@ -193,9 +193,11 @@ export default function DetalhesImovel() {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const initialState = (location.state as { imovel?: any; origem?: Origem } | null) ?? null;
   const [photoIdx, setPhotoIdx] = useState(0);
+  const [deleting, setDeleting] = useState(false);
 
   // Resolve source: state → cache → supabase
   const { data: imovelData, isLoading, error } = useQuery({
