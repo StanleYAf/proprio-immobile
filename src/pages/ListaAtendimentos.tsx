@@ -26,6 +26,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle,
+} from '@/components/ui/sheet';
 import { toast } from 'sonner';
 import AppLayout from '@/components/AppLayout';
 import { useAuth } from '@/lib/auth';
