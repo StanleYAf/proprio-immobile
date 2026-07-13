@@ -252,21 +252,64 @@ export default function DetalhesAtendimento() {
   const perfil: any = root?.perfil ?? {};
 
   const interacoes: any[] = root?.interacoes ?? [];
-  const imoveisCarrinho: any[] = root?.imoveiscarrinho ?? [];
+  const imoveisCarrinhoRemote: any[] = root?.imoveiscarrinho ?? [];
   const imoveisVisita: any[] = root?.imoveisvisita ?? [];
   const imoveisProposta: any[] = root?.imoveisproposta ?? [];
   const imoveisNegocio: any[] = root?.imoveisnegocio ?? [];
   const encontradosList: any[] = (encontrados.data as any)?.lista ?? (Array.isArray(encontrados.data) ? encontrados.data : []);
 
-  const [novoTipo, setNovoTipo] = useState('Nota');
-  const [novoConteudo, setNovoConteudo] = useState('');
-  const [enviando, setEnviando] = useState(false);
+  // Estado local otimista do carrinho
+  const [carrinhoLocal, setCarrinhoLocal] = useState<any[]>(imoveisCarrinhoRemote);
+  useEffect(() => { setCarrinhoLocal(imoveisCarrinhoRemote); }, [root]);
+  const cartCodes = useMemo(
+    () => new Set(carrinhoLocal.map((i: any) => String(pick(i, ['codigo', 'codigoImovel', 'id']) ?? ''))),
+    [carrinhoLocal]
+  );
+  const [cartBusy, setCartBusy] = useState<string | null>(null);
+
+  const handleAddCarrinho = async (codigoImovel: string, imovel: any) => {
+    setCartBusy(codigoImovel);
+    const snapshot = carrinhoLocal;
+    setCarrinhoLocal((prev) => [...prev, imovel]);
+    try {
+      await callImoview('adicionar_carrinho', { codigoAtendimento, codigoImovel });
+      toast.success('Imóvel adicionado ao carrinho do atendimento!');
+      qc.invalidateQueries({ queryKey: ['imoview', 'atendimentos'] });
+    } catch (e: any) {
+      setCarrinhoLocal(snapshot);
+      toast.error(e?.message || 'Erro ao adicionar ao carrinho');
+    } finally {
+      setCartBusy(null);
+    }
+  };
+
+  const handleRemoveCarrinho = async (codigoImovel: string) => {
+    setCartBusy(codigoImovel);
+    const snapshot = carrinhoLocal;
+    setCarrinhoLocal((prev) => prev.filter((i) => String(pick(i, ['codigo', 'codigoImovel', 'id']) ?? '') !== codigoImovel));
+    try {
+      await callImoview('remover_carrinho', { codigoAtendimento, codigoImovel });
+      toast.success('Imóvel removido do carrinho.');
+      qc.invalidateQueries({ queryKey: ['imoview', 'atendimentos'] });
+    } catch (e: any) {
+      setCarrinhoLocal(snapshot);
+      toast.error(e?.message || 'Erro ao remover do carrinho');
+    } finally {
+      setCartBusy(null);
+    }
+  };
 
   // Dialog states
   const [dialogVisita, setDialogVisita] = useState(false);
   const [dialogProposta, setDialogProposta] = useState(false);
   const [dialogDescartar, setDialogDescartar] = useState(false);
   const [dialogTransferir, setDialogTransferir] = useState(false);
+  const [visitaPreselect, setVisitaPreselect] = useState<{ codigo: string; imovel: any } | null>(null);
+
+  const openAgendarVisita = (codigo: string, imovel: any) => {
+    setVisitaPreselect({ codigo, imovel });
+    setDialogVisita(true);
+  };
 
   // Imóveis em cache para os selects
   const imoveisCache = useMemo(() => {
