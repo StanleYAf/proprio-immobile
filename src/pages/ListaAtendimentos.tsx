@@ -530,32 +530,89 @@ export default function ListaAtendimentos() {
   );
 }
 
+const TIPOS_IMOVEL = ['Apartamento', 'Casa', 'Cobertura', 'Studio', 'Kitnet', 'Terreno', 'Comercial', 'Sala', 'Galpão', 'Chácara'];
+const MIDIAS = ['WhatsApp', 'Instagram', 'Facebook', 'Portal', 'Indicação', 'Site', 'Ligação', 'Outro'];
+
+function maskPhone(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 2) return d.length ? `(${d}` : '';
+  if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
 function NovoAtendimentoDialog({
   open, onOpenChange, onCreated,
 }: { open: boolean; onOpenChange: (b: boolean) => void; onCreated: () => void }) {
-  const [nome, setNome] = useState('');
-  const [telefone, setTelefone] = useState('');
-  const [email, setEmail] = useState('');
-  const [finalidade, setFinalidade] = useState('Compra');
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
+  // Etapa 1
+  const [nome, setNome] = useState('');
+  const [telefone1, setTelefone1] = useState('');
+  const [telefone2, setTelefone2] = useState('');
+  const [email, setEmail] = useState('');
+  const [sexo, setSexo] = useState('Não informado');
+
+  // Etapa 2
+  const [finalidade, setFinalidade] = useState<'1' | '2'>('2');
+  const [tipos, setTipos] = useState<string[]>([]);
+  const [cidade, setCidade] = useState('');
+  const [bairros, setBairros] = useState<string[]>([]);
+  const [bairroInput, setBairroInput] = useState('');
+  const [valorMin, setValorMin] = useState('');
+  const [valorMax, setValorMax] = useState('');
+  const [quartosMin, setQuartosMin] = useState('0');
+  const [vagasMin, setVagasMin] = useState('0');
+  const [midia, setMidia] = useState('WhatsApp');
+
+  const reset = () => {
+    setStep(1); setNome(''); setTelefone1(''); setTelefone2(''); setEmail(''); setSexo('Não informado');
+    setFinalidade('2'); setTipos([]); setCidade(''); setBairros([]); setBairroInput('');
+    setValorMin(''); setValorMax(''); setQuartosMin('0'); setVagasMin('0'); setMidia('WhatsApp');
+  };
+
+  const validStep1 = nome.trim().length > 0 && telefone1.replace(/\D/g, '').length >= 10;
+
+  const addBairro = () => {
+    const v = bairroInput.trim();
+    if (v && !bairros.includes(v)) setBairros([...bairros, v]);
+    setBairroInput('');
+  };
+
+  const toggleTipo = (t: string) => {
+    setTipos((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
+  };
+
   const submit = async () => {
-    if (!nome.trim() || !telefone.trim()) {
-      toast.error('Informe pelo menos nome e telefone');
-      return;
-    }
+    if (!validStep1) { toast.error('Informe nome e telefone válido'); setStep(1); return; }
     setLoading(true);
     try {
+      const parseVal = (s: string) => {
+        const n = Number(s.replace(/\D/g, ''));
+        return Number.isFinite(n) && n > 0 ? n : undefined;
+      };
       await callImoview('incluir_atendimento', {
-        nomeCliente: nome,
-        telefoneCliente: telefone,
-        emailCliente: email || undefined,
-        finalidade,
+        nomeLead: nome,
+        telefoneLead: telefone1,
+        telefone2Lead: telefone2 || undefined,
+        emailLead: email || undefined,
+        sexoLead: sexo,
+        finalidade: Number(finalidade),
+        midia,
+        tipos: tipos.map((n) => ({ nome: n })),
+        perfil: {
+          valorde: parseVal(valorMin),
+          valorate: parseVal(valorMax),
+          numeroquarto: Number(quartosMin) || undefined,
+          numerovaga: Number(vagasMin) || undefined,
+          cidades: cidade ? [{ nome: cidade }] : [],
+          bairros: bairros.map((b) => ({ nome: b })),
+        },
       });
-      toast.success('Atendimento criado no Imoview');
+      toast.success('Atendimento criado com sucesso!');
       onCreated();
       onOpenChange(false);
-      setNome(''); setTelefone(''); setEmail(''); setFinalidade('Compra');
+      reset();
     } catch (e: any) {
       toast.error(e?.message || 'Erro ao criar atendimento');
     } finally {
@@ -564,44 +621,183 @@ function NovoAtendimentoDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="z-[9999]">
-        <DialogHeader>
-          <DialogTitle>Novo Atendimento</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 py-2">
-          <div>
-            <Label className="text-xs">Nome *</Label>
-            <Input value={nome} onChange={(e) => setNome(e.target.value)} className="h-10 mt-1" />
-          </div>
-          <div>
-            <Label className="text-xs">Telefone *</Label>
-            <Input value={telefone} onChange={(e) => setTelefone(e.target.value)} className="h-10 mt-1" />
-          </div>
-          <div>
-            <Label className="text-xs">E-mail</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-10 mt-1" />
-          </div>
-          <div>
-            <Label className="text-xs">Finalidade de interesse</Label>
-            <Select value={finalidade} onValueChange={setFinalidade}>
-              <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent className="z-[9999]">
-                <SelectItem value="Compra">Compra</SelectItem>
-                <SelectItem value="Aluguel">Aluguel</SelectItem>
-              </SelectContent>
-            </Select>
+    <Sheet open={open} onOpenChange={(b) => { if (!b) { onOpenChange(false); } else onOpenChange(true); }}>
+      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto z-[9999] flex flex-col">
+        <SheetHeader>
+          <SheetTitle>Novo Atendimento</SheetTitle>
+        </SheetHeader>
+
+        {/* Progress */}
+        <div className="mt-4 mb-6">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 flex items-center gap-2">
+              <div className={cn('w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium',
+                step >= 1 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>1</div>
+              <span className={cn('text-sm', step === 1 ? 'font-medium' : 'text-muted-foreground')}>Dados do Lead</span>
+            </div>
+            <div className={cn('h-0.5 w-8', step >= 2 ? 'bg-primary' : 'bg-muted')} />
+            <div className="flex-1 flex items-center gap-2">
+              <div className={cn('w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium',
+                step >= 2 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>2</div>
+              <span className={cn('text-sm', step === 2 ? 'font-medium' : 'text-muted-foreground')}>Perfil</span>
+            </div>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
-          <Button onClick={submit} disabled={loading}>
-            {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Criar atendimento
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+
+        {step === 1 && (
+          <div className="space-y-4 flex-1">
+            <div>
+              <Label className="text-xs">Nome completo *</Label>
+              <Input value={nome} onChange={(e) => setNome(e.target.value)} className="h-10 mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Telefone 1 *</Label>
+              <Input value={telefone1} onChange={(e) => setTelefone1(maskPhone(e.target.value))} placeholder="(99) 99999-9999" className="h-10 mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Telefone 2</Label>
+              <Input value={telefone2} onChange={(e) => setTelefone2(maskPhone(e.target.value))} placeholder="(99) 99999-9999" className="h-10 mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Email</Label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-10 mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Sexo</Label>
+              <Select value={sexo} onValueChange={setSexo}>
+                <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent className="z-[9999]">
+                  <SelectItem value="Masculino">Masculino</SelectItem>
+                  <SelectItem value="Feminino">Feminino</SelectItem>
+                  <SelectItem value="Não informado">Não informado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-4 flex-1">
+            <div>
+              <Label className="text-xs">Finalidade *</Label>
+              <Select value={finalidade} onValueChange={(v) => setFinalidade(v as '1' | '2')}>
+                <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent className="z-[9999]">
+                  <SelectItem value="1">Aluguel</SelectItem>
+                  <SelectItem value="2">Venda</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Tipo de imóvel</Label>
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {TIPOS_IMOVEL.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => toggleTipo(t)}
+                    className={cn(
+                      'px-3 py-1 text-xs rounded-full border transition-colors',
+                      tipos.includes(t)
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background text-foreground border-input hover:bg-muted'
+                    )}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Cidade de interesse</Label>
+              <Input value={cidade} onChange={(e) => setCidade(e.target.value)} className="h-10 mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Bairros de interesse</Label>
+              <Input
+                value={bairroInput}
+                onChange={(e) => setBairroInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addBairro(); } }}
+                placeholder="Digite e pressione Enter"
+                className="h-10 mt-1"
+              />
+              {bairros.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {bairros.map((b) => (
+                    <Badge key={b} variant="secondary" className="cursor-pointer" onClick={() => setBairros(bairros.filter((x) => x !== b))}>
+                      {b} ×
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Valor mínimo</Label>
+                <Input value={valorMin} onChange={(e) => setValorMin(e.target.value)} placeholder="R$" className="h-10 mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Valor máximo</Label>
+                <Input value={valorMax} onChange={(e) => setValorMax(e.target.value)} placeholder="R$" className="h-10 mt-1" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Quartos mínimo</Label>
+                <Select value={quartosMin} onValueChange={setQuartosMin}>
+                  <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent className="z-[9999]">
+                    <SelectItem value="0">Qualquer</SelectItem>
+                    <SelectItem value="1">1+</SelectItem>
+                    <SelectItem value="2">2+</SelectItem>
+                    <SelectItem value="3">3+</SelectItem>
+                    <SelectItem value="4">4+</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Vagas mínimo</Label>
+                <Select value={vagasMin} onValueChange={setVagasMin}>
+                  <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent className="z-[9999]">
+                    <SelectItem value="0">Qualquer</SelectItem>
+                    <SelectItem value="1">1+</SelectItem>
+                    <SelectItem value="2">2+</SelectItem>
+                    <SelectItem value="3">3+</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Mídia de origem</Label>
+              <Select value={midia} onValueChange={setMidia}>
+                <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent className="z-[9999]">
+                  {MIDIAS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-between gap-2 pt-6 mt-auto border-t">
+          {step === 1 ? (
+            <>
+              <Button variant="outline" onClick={() => { onOpenChange(false); reset(); }} disabled={loading}>Cancelar</Button>
+              <Button onClick={() => setStep(2)} disabled={!validStep1}>Próximo</Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => setStep(1)} disabled={loading}>Voltar</Button>
+              <Button onClick={submit} disabled={loading}>
+                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Criar atendimento
+              </Button>
+            </>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
