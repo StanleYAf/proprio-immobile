@@ -503,6 +503,318 @@ export default function DetalhesAtendimento() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <DialogAgendarVisita
+        open={dialogVisita}
+        onOpenChange={setDialogVisita}
+        codigoAtendimento={codigoAtendimento}
+        imoveis={imoveisCache}
+        onSuccess={() => qc.invalidateQueries({ queryKey: ['imoview', 'atendimentos'] })}
+      />
+      <DialogIncluirProposta
+        open={dialogProposta}
+        onOpenChange={setDialogProposta}
+        codigoAtendimento={codigoAtendimento}
+        imoveis={imoveisCache}
+        onSuccess={() => qc.invalidateQueries({ queryKey: ['imoview', 'atendimentos'] })}
+      />
+      <DialogDescartar
+        open={dialogDescartar}
+        onOpenChange={setDialogDescartar}
+        codigoAtendimento={codigoAtendimento}
+        onSuccess={() => {
+          qc.invalidateQueries({ queryKey: ['imoview', 'atendimentos'] });
+          setTimeout(() => navigate('/atendimentos'), 1000);
+        }}
+      />
+      <DialogTransferir
+        open={dialogTransferir}
+        onOpenChange={setDialogTransferir}
+        codigoAtendimento={codigoAtendimento}
+        usuarios={usuarios}
+        carregando={carregandoUsuarios}
+        onSuccess={() => qc.invalidateQueries({ queryKey: ['imoview', 'atendimentos'] })}
+      />
     </AppLayout>
   );
 }
+
+// ═══════════════════════════════════════════════════════════
+// DIALOGS
+// ═══════════════════════════════════════════════════════════
+
+function ImovelSelect({ imoveis, value, onChange }: { imoveis: any[]; value: string; onChange: (v: string) => void }) {
+  const [busca, setBusca] = useState('');
+  const filtrados = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    if (!q) return imoveis.slice(0, 100);
+    return imoveis.filter((im) => {
+      const cod = String(im.codigo ?? '').toLowerCase();
+      const bairro = String(im.bairro ?? im.endereco?.bairro ?? '').toLowerCase();
+      return cod.includes(q) || bairro.includes(q);
+    }).slice(0, 100);
+  }, [imoveis, busca]);
+  return (
+    <div className="space-y-2">
+      <Input placeholder="Buscar por código ou bairro..." value={busca} onChange={(e) => setBusca(e.target.value)} />
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger><SelectValue placeholder="Selecionar imóvel" /></SelectTrigger>
+        <SelectContent className="z-[9999] max-h-72">
+          {filtrados.length === 0 && <div className="p-3 text-xs text-muted-foreground">Nenhum imóvel encontrado no cache. Abra a lista de imóveis primeiro.</div>}
+          {filtrados.map((im: any) => (
+            <SelectItem key={String(im.codigo)} value={String(im.codigo)}>
+              #{im.codigo} — {im.tipo ?? im.descricaoTipo ?? '—'} • {im.bairro ?? im.endereco?.bairro ?? '—'}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+const HORARIOS: string[] = (() => {
+  const arr: string[] = [];
+  for (let h = 8; h <= 18; h++) {
+    arr.push(`${String(h).padStart(2, '0')}:00`);
+    if (h < 18) arr.push(`${String(h).padStart(2, '0')}:30`);
+  }
+  return arr;
+})();
+
+function DialogAgendarVisita({ open, onOpenChange, codigoAtendimento, imoveis, onSuccess }: any) {
+  const [codigoImovel, setCodigoImovel] = useState('');
+  const [data, setData] = useState('');
+  const [hora, setHora] = useState('09:00');
+  const [obs, setObs] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  const confirmar = async () => {
+    if (!codigoImovel) return toast.error('Selecione um imóvel');
+    if (!data) return toast.error('Selecione a data');
+    const [y, m, d] = data.split('-');
+    const dataFmt = `${d}/${m}/${y}`;
+    setEnviando(true);
+    try {
+      await callImoview('agendar_visita', {
+        codigoAtendimento,
+        codigoImovel,
+        datavisita: dataFmt,
+        horavisita: hora,
+        observacao: obs,
+      });
+      toast.success('Visita agendada com sucesso!');
+      onSuccess?.();
+      onOpenChange(false);
+      setCodigoImovel(''); setData(''); setObs('');
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao agendar visita');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Agendar Visita</DialogTitle>
+          <DialogDescription>Selecione o imóvel e o horário da visita.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Imóvel</Label>
+            <ImovelSelect imoveis={imoveis} value={codigoImovel} onChange={setCodigoImovel} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Data</Label>
+              <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Hora</Label>
+              <Select value={hora} onValueChange={setHora}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent className="z-[9999] max-h-64">
+                  {HORARIOS.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Observações</Label>
+            <Textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={3} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={confirmar} disabled={enviando}>
+            {enviando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Confirmar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DialogIncluirProposta({ open, onOpenChange, codigoAtendimento, imoveis, onSuccess }: any) {
+  const [codigoImovel, setCodigoImovel] = useState('');
+  const [valor, setValor] = useState('');
+  const [obs, setObs] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  const confirmar = async () => {
+    if (!codigoImovel) return toast.error('Selecione um imóvel');
+    const valorNum = parseFloat(valor.replace(/\./g, '').replace(',', '.'));
+    if (!valorNum || isNaN(valorNum)) return toast.error('Informe um valor válido');
+    setEnviando(true);
+    try {
+      await callImoview('incluir_proposta', {
+        codigoAtendimento,
+        codigoImovel,
+        valor: valorNum,
+        observacao: obs,
+      });
+      toast.success('Proposta incluída com sucesso!');
+      onSuccess?.();
+      onOpenChange(false);
+      setCodigoImovel(''); setValor(''); setObs('');
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao incluir proposta');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Incluir Proposta</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Imóvel</Label>
+            <ImovelSelect imoveis={imoveis} value={codigoImovel} onChange={setCodigoImovel} />
+          </div>
+          <div>
+            <Label className="text-xs">Valor da proposta (R$)</Label>
+            <Input inputMode="decimal" placeholder="0,00" value={valor} onChange={(e) => setValor(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-xs">Observações</Label>
+            <Textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={3} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={confirmar} disabled={enviando}>
+            {enviando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Confirmar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DialogDescartar({ open, onOpenChange, codigoAtendimento, onSuccess }: any) {
+  const [motivo, setMotivo] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  const confirmar = async () => {
+    if (!motivo.trim()) return toast.error('Informe o motivo');
+    setEnviando(true);
+    try {
+      await callImoview('descartar_atendimento', { codigoAtendimento, motivo });
+      toast.success('Atendimento descartado.');
+      onSuccess?.();
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao descartar');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Descartar atendimento</DialogTitle>
+          <DialogDescription>Esta ação removerá o atendimento do funil ativo.</DialogDescription>
+        </DialogHeader>
+        <div>
+          <Label className="text-xs">Motivo do descarte</Label>
+          <Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={4} required />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button variant="destructive" onClick={confirmar} disabled={enviando}>
+            {enviando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Confirmar Descarte
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DialogTransferir({ open, onOpenChange, codigoAtendimento, usuarios, carregando, onSuccess }: any) {
+  const [codigoNovoCorretor, setCodigoNovoCorretor] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  const confirmar = async () => {
+    if (!codigoNovoCorretor) return toast.error('Selecione um corretor');
+    const u = usuarios.find((x: any) => String(x.codigo ?? x.codigoUsuario) === codigoNovoCorretor);
+    setEnviando(true);
+    try {
+      await callImoview('transferir_corretor', { codigoAtendimento, codigoNovoCorretor });
+      toast.success(`Atendimento transferido para ${u?.nome ?? 'novo corretor'}.`);
+      onSuccess?.();
+      onOpenChange(false);
+      setCodigoNovoCorretor('');
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao transferir');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Transferir Corretor</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label className="text-xs">Novo corretor</Label>
+          {carregando ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+              <Loader2 className="w-4 h-4 animate-spin" /> Carregando usuários...
+            </div>
+          ) : (
+            <Select value={codigoNovoCorretor} onValueChange={setCodigoNovoCorretor}>
+              <SelectTrigger><SelectValue placeholder="Selecionar corretor" /></SelectTrigger>
+              <SelectContent className="z-[9999] max-h-72">
+                {usuarios.length === 0 && <div className="p-3 text-xs text-muted-foreground">Nenhum usuário encontrado.</div>}
+                {usuarios.map((u: any) => {
+                  const cod = String(u.codigo ?? u.codigoUsuario ?? '');
+                  return (
+                    <SelectItem key={cod} value={cod}>
+                      {u.nome ?? u.nomeUsuario ?? '—'}{u.email ? ` • ${u.email}` : ''}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={confirmar} disabled={enviando}>
+            {enviando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Confirmar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
