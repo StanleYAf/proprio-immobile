@@ -627,9 +627,10 @@ export default function DetalhesAtendimento() {
 
       <DialogAgendarVisita
         open={dialogVisita}
-        onOpenChange={setDialogVisita}
+        onOpenChange={(b: boolean) => { setDialogVisita(b); if (!b) setVisitaPreselect(null); }}
         codigoAtendimento={codigoAtendimento}
-        imoveis={imoveisCache}
+        imoveis={visitaPreselect ? [visitaPreselect.imovel, ...imoveisCache.filter((i) => String(i.codigo) !== visitaPreselect.codigo)] : imoveisCache}
+        preselectCodigo={visitaPreselect?.codigo}
         onSuccess={() => qc.invalidateQueries({ queryKey: ['imoview', 'atendimentos'] })}
       />
       <DialogIncluirProposta
