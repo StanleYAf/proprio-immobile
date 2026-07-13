@@ -59,7 +59,17 @@ const isYes = (v: any) => {
 };
 const simNao = (v: any) => (v == null || v === '' ? '—' : (isYes(v) ? 'Sim' : 'Não'));
 
-function ImoveisGrid({ items, navigate, emptyMsg }: { items: any[]; navigate: (p: string) => void; emptyMsg: string }) {
+function ImoveisGrid({
+  items, navigate, emptyMsg,
+  cartCodes, onAdd, onRemove, onAgendar, busyCode,
+}: {
+  items: any[]; navigate: (p: string) => void; emptyMsg: string;
+  cartCodes?: Set<string>;
+  onAdd?: (codigo: string, imovel: any) => void;
+  onRemove?: (codigo: string) => void;
+  onAgendar?: (codigo: string, imovel: any) => void;
+  busyCode?: string | null;
+}) {
   if (!items?.length) {
     return <p className="text-sm text-muted-foreground py-6 text-center">{emptyMsg}</p>;
   }
@@ -67,14 +77,17 @@ function ImoveisGrid({ items, navigate, emptyMsg }: { items: any[]; navigate: (p
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {items.map((it, idx) => {
         const codigo = pick(it, ['codigo', 'codigoImovel', 'id']) ?? '';
+        const codStr = String(codigo);
         const tipo = pick(it, ['tipo', 'descricaoTipo', 'tipoImovel']);
         const bairro = pick(it, ['bairro', 'nomeBairro', 'endereco.bairro']);
         const cidade = pick(it, ['cidade', 'nomeCidade', 'endereco.cidade']);
         const valor = pick(it, ['valor', 'valorVenda', 'valorAluguel', 'preco']);
         const foto = pick(it, ['foto', 'urlFoto', 'fotoPrincipal', 'imagem', 'urlImagem']);
+        const noCarrinho = cartCodes?.has(codStr) ?? false;
+        const busy = busyCode === codStr;
         return (
           <motion.div
-            key={String(codigo) + idx}
+            key={codStr + idx}
             initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: idx * 0.03 }}
             className="rounded-xl border border-border bg-card overflow-hidden flex flex-col"
           >
@@ -93,9 +106,54 @@ function ImoveisGrid({ items, navigate, emptyMsg }: { items: any[]; navigate: (p
               <p className="text-sm font-medium">{[bairro, cidade].filter(Boolean).join(' • ') || '—'}</p>
               <p className="text-base font-bold text-accent">{fmtBRL(valor) ?? 'Consulte-nos'}</p>
               {codigo && (
-                <Button size="sm" variant="outline" className="mt-2" onClick={() => navigate(`/imoveis?codigo=${codigo}`)}>
-                  <ExternalLink className="w-3.5 h-3.5 mr-1" /> Ver imóvel
-                </Button>
+                <div className="mt-2 flex flex-col gap-1.5">
+                  <Button size="sm" variant="outline" onClick={() => navigate(`/imoveis?codigo=${codigo}`)}>
+                    <ExternalLink className="w-3.5 h-3.5 mr-1" /> Ver imóvel
+                  </Button>
+                  {onAdd && (
+                    noCarrinho ? (
+                      <div className="flex gap-1.5">
+                        <Button
+                          size="sm"
+                          disabled
+                          className="flex-1 bg-emerald-600/20 text-emerald-500 border border-emerald-600/40 hover:bg-emerald-600/20"
+                        >
+                          ✓ No carrinho
+                        </Button>
+                        {onRemove && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                            disabled={busy}
+                            onClick={() => onRemove(codStr)}
+                            aria-label="Remover do carrinho"
+                          >
+                            {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => onAdd(codStr, it)}
+                      >
+                        {busy ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <ShoppingCart className="w-3.5 h-3.5 mr-1" />}
+                        Adicionar ao carrinho
+                      </Button>
+                    )
+                  )}
+                  {onAgendar && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => onAgendar(codStr, it)}
+                    >
+                      <Calendar className="w-3.5 h-3.5 mr-1" /> Agendar Visita
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           </motion.div>
