@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Loader2, Phone, Mail, ExternalLink,
-  Plus, ImageOff, Calendar, FileText, Trash2, ArrowRightLeft,
+  Plus, ImageOff, Calendar, FileText, Trash2, ArrowRightLeft, X, ShoppingCart,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import AppLayout from '@/components/AppLayout';
