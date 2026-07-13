@@ -17,10 +17,12 @@ const parseBRL = (v: string): number | null => {
   const n = parseFloat(v.replace(/\./g, '').replace(',', '.'));
   return isNaN(n) ? null : n;
 };
+const PG_INT_MAX = 2147483647;
 const parseInt10 = (v: string): number | null => {
   if (!v) return null;
   const n = parseInt(v.replace(/\D/g, ''), 10);
-  return isNaN(n) ? null : n;
+  if (isNaN(n)) return null;
+  return Math.min(n, PG_INT_MAX);
 };
 
 export default function RegisterProperty() {
