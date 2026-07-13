@@ -1,25 +1,30 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Loader2, Phone, Mail, ExternalLink,
-  Plus, ImageOff,
+  Plus, ImageOff, Calendar, FileText, Trash2, ArrowRightLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import AppLayout from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from '@/components/ui/dialog';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useImoviewImoveisEncontrados,
   callImoview,
 } from '@/hooks/useImoviewApi';
+
 
 const pick = (obj: any, keys: string[]): any => {
   for (const k of keys) {
