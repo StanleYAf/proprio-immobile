@@ -703,7 +703,12 @@ const HORARIOS: string[] = (() => {
   return arr;
 })();
 
-function DialogAgendarVisita({ open, onOpenChange, codigoAtendimento, imoveis, onSuccess }: any) {
+function DialogAgendarVisita({ open, onOpenChange, codigoAtendimento, imoveis, onSuccess, preselectCodigo }: any) {
+  const [codigoImovel, setCodigoImovel] = useState('');
+  useEffect(() => {
+    if (open && preselectCodigo) setCodigoImovel(String(preselectCodigo));
+    if (!open) setCodigoImovel('');
+  }, [open, preselectCodigo]);
   const [codigoImovel, setCodigoImovel] = useState('');
   const [data, setData] = useState('');
   const [hora, setHora] = useState('09:00');
