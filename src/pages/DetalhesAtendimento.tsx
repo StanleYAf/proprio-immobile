@@ -251,6 +251,10 @@ export default function DetalhesAtendimento() {
   const lead: any = root?.lead ?? {};
   const perfil: any = root?.perfil ?? {};
 
+  const [novoTipo, setNovoTipo] = useState('Nota');
+  const [novoConteudo, setNovoConteudo] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
   const interacoes: any[] = root?.interacoes ?? [];
   const imoveisCarrinhoRemote: any[] = root?.imoveiscarrinho ?? [];
   const imoveisVisita: any[] = root?.imoveisvisita ?? [];
