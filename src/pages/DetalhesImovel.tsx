@@ -308,6 +308,42 @@ export default function DetalhesImovel() {
 
   const comodidadesAtivas = COMODIDADES.filter(([k]) => imovel.comodidades?.[k] === true || imovel.comodidades?.[k] === 'sim');
 
+  const handleDelete = async () => {
+    if (imovel.origem !== 'local' || !id) {
+      toast.error('Somente imóveis locais podem ser excluídos aqui.');
+      return;
+    }
+    setDeleting(true);
+    try {
+      // Best-effort webhook notification
+      await sendToWebhook({
+        tipo: 'imovel', acao: 'desativar',
+        usuario: { email: user!.email, name: user!.name },
+        dados: { imovel_id: id, codigo: imovel.codigo, motivo: 'Excluído pelo usuário' },
+      }).catch(() => null);
+
+      // Remove storage folder (best-effort)
+      try {
+        const { data: files } = await supabase.storage.from('property-images').list(id);
+        if (files && files.length > 0) {
+          await supabase.storage.from('property-images').remove(files.map((f) => `${id}/${f.name}`));
+        }
+      } catch { /* ignore */ }
+
+      const { error: delErr } = await supabase.from('imoveis').delete().eq('id', id);
+      if (delErr) throw delErr;
+
+      toast.success('Imóvel excluído com sucesso.');
+      queryClient.invalidateQueries({ queryKey: ['imoveis-locais'] });
+      navigate('/imoveis');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao excluir imóvel';
+      toast.error(msg);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <AppLayout title={`Imóvel #${imovel.codigo ?? '—'}`}>
       {/* Top bar */}
@@ -320,6 +356,30 @@ export default function DetalhesImovel() {
             {imovel.origem === 'imoview' ? (<><ExternalLink className="w-3 h-3 mr-1" /> Imoview</>) : 'Local'}
           </Badge>
           <Badge className={`${statusClass} border-none capitalize`}>{statusKey}</Badge>
+          {imovel.origem === 'local' && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="destructive" disabled={deleting}>
+                  {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Trash2 className="w-4 h-4 mr-1.5" />}
+                  Excluir
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir imóvel?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação é permanente. O imóvel <strong>{imovel.codigo ?? ''}</strong> será removido do banco e suas fotos apagadas. Uma notificação de desativação será enviada ao n8n.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Sim, excluir
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </div>
 
