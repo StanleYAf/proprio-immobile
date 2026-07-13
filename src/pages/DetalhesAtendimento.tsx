@@ -305,6 +305,20 @@ export default function DetalhesAtendimento() {
             {root?.funil && <Badge variant="outline">{root.funil}</Badge>}
           </div>
         </div>
+        <div className="flex flex-wrap gap-2 mt-3">
+          <Button size="sm" variant="outline" onClick={() => setDialogVisita(true)}>
+            <Calendar className="w-4 h-4 mr-1.5" /> Agendar Visita
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setDialogProposta(true)}>
+            <FileText className="w-4 h-4 mr-1.5" /> Incluir Proposta
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setDialogTransferir(true)}>
+            <ArrowRightLeft className="w-4 h-4 mr-1.5" /> Transferir Corretor
+          </Button>
+          <Button size="sm" variant="destructive" onClick={() => setDialogDescartar(true)}>
+            <Trash2 className="w-4 h-4 mr-1.5" /> Descartar
+          </Button>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 text-sm">
           {lead?.telefone1 && (
             <a href={`tel:${String(lead.telefone1).replace(/\D/g, '')}`} className="flex items-center gap-2 hover:text-accent">
