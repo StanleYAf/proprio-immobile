@@ -199,6 +199,18 @@ async function runAction(action: string, params: Record<string, any>, chave: str
     case 'descartar_atendimento':
       return await restPost('/Atendimento/App_DescartarAtendimento', params, headers);
 
+    case 'agendar_visita':
+      return await restPost('/Atendimento/App_IncluirImovelAgendamentoVisita', params, headers);
+
+    case 'incluir_proposta':
+      return await restPost('/Atendimento/App_IncluirImovelProposta', params, headers);
+
+    case 'transferir_corretor':
+      return await restPost('/Atendimento/App_Transferir', params, headers);
+
+    case 'listar_usuarios':
+      return await restGet('/Usuario/App_RetornarUsuarios', params, headers);
+
     case 'listar_clientes': {
       const PAGE_SIZE = Math.min(Number(params.numeroRegistros) || 20, 20);
       const { numeroPagina: _np, numeroRegistros: _nr, ...rest } = params || {};
