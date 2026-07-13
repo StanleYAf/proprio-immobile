@@ -5,12 +5,19 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, Building2, BedDouble, Bath, Car, Ruler, MapPin,
   Phone, MessageCircle, Mail, User as UserIcon, ExternalLink,
-  ArrowUpRight, Inbox, Sparkles, Calendar,
+  ArrowUpRight, Inbox, Sparkles, Calendar, Trash2, Loader2,
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
+import { useAuth } from '@/lib/auth';
+import { sendToWebhook } from '@/lib/webhook';
 import { supabase } from '@/integrations/supabase/client';
 import { useImoviewImoveisAlterados } from '@/hooks/useImoviewApi';
 
