@@ -238,13 +238,26 @@ export default function RegisterProperty() {
       }
 
       // Webhook (best-effort)
-      await sendToWebhook({
+      const res = await sendToWebhook({
         tipo: 'imovel', acao: 'cadastrar',
         usuario: { email: user!.email, name: user!.name },
         dados: { ...form, cep, codigo, status, destinacao: destinacaoArr, lazer: lazerArr, aceita_financiamento: financiamento, titulo: tituloGerado, fotos: fotosUrls, imovel_id: imovelId },
       });
 
-      toast.success(`Imóvel ${codigo} cadastrado com sucesso!`);
+      const resData = (res.data as Record<string, unknown> | undefined) ?? {};
+      const codigoImoview =
+        (resData.codigo_imovel as string | number | undefined) ??
+        (resData.codigo as string | number | undefined) ??
+        (resData.code as string | number | undefined);
+
+      if (codigoImoview && imovelId) {
+        await supabase
+          .from('imoveis')
+          .update({ codigo: String(codigoImoview) })
+          .eq('id', imovelId);
+      }
+
+      toast.success(`Imóvel ${codigoImoview || codigo} cadastrado!`);
       navigate(`/imoveis/${imovelId}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao salvar imóvel';
