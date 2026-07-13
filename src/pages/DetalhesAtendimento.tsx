@@ -709,7 +709,6 @@ function DialogAgendarVisita({ open, onOpenChange, codigoAtendimento, imoveis, o
     if (open && preselectCodigo) setCodigoImovel(String(preselectCodigo));
     if (!open) setCodigoImovel('');
   }, [open, preselectCodigo]);
-  const [codigoImovel, setCodigoImovel] = useState('');
   const [data, setData] = useState('');
   const [hora, setHora] = useState('09:00');
   const [obs, setObs] = useState('');
