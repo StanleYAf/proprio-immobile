@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Loader2, Phone, Mail, ExternalLink,
-  Plus, ImageOff, Calendar, FileText, Trash2, ArrowRightLeft,
+  Plus, ImageOff, Calendar, FileText, Trash2, ArrowRightLeft, X, ShoppingCart,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import AppLayout from '@/components/AppLayout';
@@ -59,7 +59,17 @@ const isYes = (v: any) => {
 };
 const simNao = (v: any) => (v == null || v === '' ? '—' : (isYes(v) ? 'Sim' : 'Não'));
 
-function ImoveisGrid({ items, navigate, emptyMsg }: { items: any[]; navigate: (p: string) => void; emptyMsg: string }) {
+function ImoveisGrid({
+  items, navigate, emptyMsg,
+  cartCodes, onAdd, onRemove, onAgendar, busyCode,
+}: {
+  items: any[]; navigate: (p: string) => void; emptyMsg: string;
+  cartCodes?: Set<string>;
+  onAdd?: (codigo: string, imovel: any) => void;
+  onRemove?: (codigo: string) => void;
+  onAgendar?: (codigo: string, imovel: any) => void;
+  busyCode?: string | null;
+}) {
   if (!items?.length) {
     return <p className="text-sm text-muted-foreground py-6 text-center">{emptyMsg}</p>;
   }
@@ -67,14 +77,17 @@ function ImoveisGrid({ items, navigate, emptyMsg }: { items: any[]; navigate: (p
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {items.map((it, idx) => {
         const codigo = pick(it, ['codigo', 'codigoImovel', 'id']) ?? '';
+        const codStr = String(codigo);
         const tipo = pick(it, ['tipo', 'descricaoTipo', 'tipoImovel']);
         const bairro = pick(it, ['bairro', 'nomeBairro', 'endereco.bairro']);
         const cidade = pick(it, ['cidade', 'nomeCidade', 'endereco.cidade']);
         const valor = pick(it, ['valor', 'valorVenda', 'valorAluguel', 'preco']);
         const foto = pick(it, ['foto', 'urlFoto', 'fotoPrincipal', 'imagem', 'urlImagem']);
+        const noCarrinho = cartCodes?.has(codStr) ?? false;
+        const busy = busyCode === codStr;
         return (
           <motion.div
-            key={String(codigo) + idx}
+            key={codStr + idx}
             initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: idx * 0.03 }}
             className="rounded-xl border border-border bg-card overflow-hidden flex flex-col"
           >
@@ -93,9 +106,54 @@ function ImoveisGrid({ items, navigate, emptyMsg }: { items: any[]; navigate: (p
               <p className="text-sm font-medium">{[bairro, cidade].filter(Boolean).join(' • ') || '—'}</p>
               <p className="text-base font-bold text-accent">{fmtBRL(valor) ?? 'Consulte-nos'}</p>
               {codigo && (
-                <Button size="sm" variant="outline" className="mt-2" onClick={() => navigate(`/imoveis?codigo=${codigo}`)}>
-                  <ExternalLink className="w-3.5 h-3.5 mr-1" /> Ver imóvel
-                </Button>
+                <div className="mt-2 flex flex-col gap-1.5">
+                  <Button size="sm" variant="outline" onClick={() => navigate(`/imoveis?codigo=${codigo}`)}>
+                    <ExternalLink className="w-3.5 h-3.5 mr-1" /> Ver imóvel
+                  </Button>
+                  {onAdd && (
+                    noCarrinho ? (
+                      <div className="flex gap-1.5">
+                        <Button
+                          size="sm"
+                          disabled
+                          className="flex-1 bg-emerald-600/20 text-emerald-500 border border-emerald-600/40 hover:bg-emerald-600/20"
+                        >
+                          ✓ No carrinho
+                        </Button>
+                        {onRemove && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                            disabled={busy}
+                            onClick={() => onRemove(codStr)}
+                            aria-label="Remover do carrinho"
+                          >
+                            {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => onAdd(codStr, it)}
+                      >
+                        {busy ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <ShoppingCart className="w-3.5 h-3.5 mr-1" />}
+                        Adicionar ao carrinho
+                      </Button>
+                    )
+                  )}
+                  {onAgendar && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => onAgendar(codStr, it)}
+                    >
+                      <Calendar className="w-3.5 h-3.5 mr-1" /> Agendar Visita
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           </motion.div>
@@ -193,22 +251,69 @@ export default function DetalhesAtendimento() {
   const lead: any = root?.lead ?? {};
   const perfil: any = root?.perfil ?? {};
 
+  const [novoTipo, setNovoTipo] = useState('Nota');
+  const [novoConteudo, setNovoConteudo] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
   const interacoes: any[] = root?.interacoes ?? [];
-  const imoveisCarrinho: any[] = root?.imoveiscarrinho ?? [];
+  const imoveisCarrinhoRemote: any[] = root?.imoveiscarrinho ?? [];
   const imoveisVisita: any[] = root?.imoveisvisita ?? [];
   const imoveisProposta: any[] = root?.imoveisproposta ?? [];
   const imoveisNegocio: any[] = root?.imoveisnegocio ?? [];
   const encontradosList: any[] = (encontrados.data as any)?.lista ?? (Array.isArray(encontrados.data) ? encontrados.data : []);
 
-  const [novoTipo, setNovoTipo] = useState('Nota');
-  const [novoConteudo, setNovoConteudo] = useState('');
-  const [enviando, setEnviando] = useState(false);
+  // Estado local otimista do carrinho
+  const [carrinhoLocal, setCarrinhoLocal] = useState<any[]>(imoveisCarrinhoRemote);
+  useEffect(() => { setCarrinhoLocal(imoveisCarrinhoRemote); }, [root]);
+  const cartCodes = useMemo(
+    () => new Set(carrinhoLocal.map((i: any) => String(pick(i, ['codigo', 'codigoImovel', 'id']) ?? ''))),
+    [carrinhoLocal]
+  );
+  const [cartBusy, setCartBusy] = useState<string | null>(null);
+
+  const handleAddCarrinho = async (codigoImovel: string, imovel: any) => {
+    setCartBusy(codigoImovel);
+    const snapshot = carrinhoLocal;
+    setCarrinhoLocal((prev) => [...prev, imovel]);
+    try {
+      await callImoview('adicionar_carrinho', { codigoAtendimento, codigoImovel });
+      toast.success('Imóvel adicionado ao carrinho do atendimento!');
+      qc.invalidateQueries({ queryKey: ['imoview', 'atendimentos'] });
+    } catch (e: any) {
+      setCarrinhoLocal(snapshot);
+      toast.error(e?.message || 'Erro ao adicionar ao carrinho');
+    } finally {
+      setCartBusy(null);
+    }
+  };
+
+  const handleRemoveCarrinho = async (codigoImovel: string) => {
+    setCartBusy(codigoImovel);
+    const snapshot = carrinhoLocal;
+    setCarrinhoLocal((prev) => prev.filter((i) => String(pick(i, ['codigo', 'codigoImovel', 'id']) ?? '') !== codigoImovel));
+    try {
+      await callImoview('remover_carrinho', { codigoAtendimento, codigoImovel });
+      toast.success('Imóvel removido do carrinho.');
+      qc.invalidateQueries({ queryKey: ['imoview', 'atendimentos'] });
+    } catch (e: any) {
+      setCarrinhoLocal(snapshot);
+      toast.error(e?.message || 'Erro ao remover do carrinho');
+    } finally {
+      setCartBusy(null);
+    }
+  };
 
   // Dialog states
   const [dialogVisita, setDialogVisita] = useState(false);
   const [dialogProposta, setDialogProposta] = useState(false);
   const [dialogDescartar, setDialogDescartar] = useState(false);
   const [dialogTransferir, setDialogTransferir] = useState(false);
+  const [visitaPreselect, setVisitaPreselect] = useState<{ codigo: string; imovel: any } | null>(null);
+
+  const openAgendarVisita = (codigo: string, imovel: any) => {
+    setVisitaPreselect({ codigo, imovel });
+    setDialogVisita(true);
+  };
 
   // Imóveis em cache para os selects
   const imoveisCache = useMemo(() => {
@@ -410,13 +515,29 @@ export default function DetalhesAtendimento() {
         </TabsContent>
 
         <TabsContent value="encontrados" className="mt-4">
-          <ImoveisGrid items={encontradosList} navigate={navigate} emptyMsg="Nenhum imóvel encontrado." />
+          <ImoveisGrid
+            items={encontradosList}
+            navigate={navigate}
+            emptyMsg="Nenhum imóvel encontrado."
+            cartCodes={cartCodes}
+            onAdd={handleAddCarrinho}
+            onRemove={handleRemoveCarrinho}
+            busyCode={cartBusy}
+          />
         </TabsContent>
 
         <TabsContent value="visitas" className="mt-4 space-y-6">
           <section>
             <h3 className="text-sm font-semibold mb-2">Carrinho</h3>
-            <ImoveisGrid items={imoveisCarrinho} navigate={navigate} emptyMsg="Nenhum imóvel no carrinho." />
+            <ImoveisGrid
+              items={carrinhoLocal}
+              navigate={navigate}
+              emptyMsg="Nenhum imóvel no carrinho."
+              cartCodes={cartCodes}
+              onRemove={handleRemoveCarrinho}
+              onAgendar={openAgendarVisita}
+              busyCode={cartBusy}
+            />
           </section>
           <section>
             <h3 className="text-sm font-semibold mb-2">Visitas</h3>
@@ -506,9 +627,10 @@ export default function DetalhesAtendimento() {
 
       <DialogAgendarVisita
         open={dialogVisita}
-        onOpenChange={setDialogVisita}
+        onOpenChange={(b: boolean) => { setDialogVisita(b); if (!b) setVisitaPreselect(null); }}
         codigoAtendimento={codigoAtendimento}
-        imoveis={imoveisCache}
+        imoveis={visitaPreselect ? [visitaPreselect.imovel, ...imoveisCache.filter((i) => String(i.codigo) !== visitaPreselect.codigo)] : imoveisCache}
+        preselectCodigo={visitaPreselect?.codigo}
         onSuccess={() => qc.invalidateQueries({ queryKey: ['imoview', 'atendimentos'] })}
       />
       <DialogIncluirProposta
@@ -581,8 +703,12 @@ const HORARIOS: string[] = (() => {
   return arr;
 })();
 
-function DialogAgendarVisita({ open, onOpenChange, codigoAtendimento, imoveis, onSuccess }: any) {
+function DialogAgendarVisita({ open, onOpenChange, codigoAtendimento, imoveis, onSuccess, preselectCodigo }: any) {
   const [codigoImovel, setCodigoImovel] = useState('');
+  useEffect(() => {
+    if (open && preselectCodigo) setCodigoImovel(String(preselectCodigo));
+    if (!open) setCodigoImovel('');
+  }, [open, preselectCodigo]);
   const [data, setData] = useState('');
   const [hora, setHora] = useState('09:00');
   const [obs, setObs] = useState('');

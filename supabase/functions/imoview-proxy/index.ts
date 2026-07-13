@@ -184,6 +184,12 @@ async function runAction(action: string, params: Record<string, any>, chave: str
     case 'imoveis_visita':
       return await restGet('/Atendimento/App_RetornarImoveisVisita', params, headers);
 
+    case 'adicionar_carrinho':
+      return await restPost('/Atendimento/App_IncluirImovelCarrinho', params, headers);
+
+    case 'remover_carrinho':
+      return await restPost('/Atendimento/App_ExcluirImovelCarrinho', params, headers);
+
     case 'imoveis_proposta':
       return await restGet('/Atendimento/App_RetornarImoveisProposta', params, headers);
 
