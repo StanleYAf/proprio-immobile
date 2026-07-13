@@ -120,6 +120,17 @@ async function runAction(action: string, params: Record<string, any>, chave: str
     case 'detalhe_imovel':
       return await restGet('/Imovel/App_RetornarDetalhesImovel', params, headers);
 
+    case 'imoveis_alterados': {
+      const body = {
+        codigosimoveis: params.codigosimoveis ? String(params.codigosimoveis) : '',
+        numeroPagina: params.numeroPagina ?? 1,
+        numeroRegistros: params.numeroRegistros ?? 20,
+        dataHoraInicial: params.dataHoraInicial ?? '',
+        dataHoraFinal: params.dataHoraFinal ?? '',
+      };
+      return await restPost('/Imovel/RetornarImoveisAlterados', body, headers);
+    }
+
     case 'listar_atendimentos': {
       // Endpoint correto: /Atendimento/RetornarAtendimentos (sem App_)
       // Requer TODOS os parâmetros — numéricos vazios = 0, strings vazias = ""
